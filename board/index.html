@@ -150,7 +150,7 @@
 
     const { data, error } = await db
       .from('board')
-      .select('*')
+      .select('*', comment(count)')
       .eq('category_id', currentCatId)
       .order('created_at', { ascending: false })
       .range(from, to)
@@ -159,11 +159,15 @@
 
     if (error || !data) { list.innerHTML = '<div class="empty">불러오기 실패</div>'; return }
     if (data.length === 0) { list.innerHTML = '<div class="empty">아직 게시글이 없습니다</div>'; renderPagination(); return }
-
+//'<div class="post-title">' + escapeHtml(post.title) + '</div>' +
     list.innerHTML = data.map(post =>
       '<a class="post-item" href="view.html?id=' + post.id + '">' +
         '<div class="post-left">' +
-          '<div class="post-title">' + escapeHtml(post.title) + '</div>' +
+          
+         const commentCount = post.comment[0]?.count || 0
+'<div class="post-title">' + escapeHtml(post.title) + 
+(commentCount > 0 ? ' <span class="comment-count">[' + commentCount + ']</span>' : '') +
+'</div>'
           '<div class="post-meta"><span>' + escapeHtml(post.author) + '</span><span>' + timeAgo(post.created_at) + '</span></div>' +
         '</div>' +
       '</a>'
