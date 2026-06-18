@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qding 게시판</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #f0f0f0; min-height: 100vh; padding: 2rem 1rem; }
+  .container { max-width: 640px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 2rem; }
+  .logo { font-size: 1.8rem; font-weight: 700; color: #ffffff; }
+  .logo span { color: #00C896; }
+  .category-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid #222; padding-bottom: 0; }
+  .tab { padding: 0.6rem 1.2rem; font-size: 0.85rem; font-weight: 600; color: #555; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.2s, border-color 0.2s; text-decoration: none; }
+  .tab:hover { color: #aaa; }
+  .tab.active { color: #00C896; border-bottom-color: #00C896; }
+  .board-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+  .board-title { font-size: 1rem; font-weight: 600; color: #fff; }
+  .write-btn { background: #00C896; color: #0a0a0a; border: none; border-radius: 6px; padding: 0.5rem 1rem; font-size: 0.8rem; font-weight: 700; cursor: pointer; text-decoration: none; transition: background 0.2s; }
+  .write-btn:hover { background: #00b085; }
+  .post-list { display: flex; flex-direction: column; gap: 0; }
+  .post-item { display: flex; align-items: center; justify-content: space-between; padding: 1rem 0; border-bottom: 1px solid #1a1a1a; cursor: pointer; transition: background 0.15s, padding-left 0.15s; text-decoration: none; color: inherit; }
+  .post-item:hover { background: #111; padding-left: 0.5rem; }
+  .post-left { flex: 1; min-width: 0; }
+  .post-title { font-size: 0.95rem; color: #f0f0f0; margin-bottom: 0.3rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .post-meta { font-size: 0.75rem; color: #555; }
+  .post-meta span { margin-right: 0.8rem; }
+  .empty { text-align: center; color: #444; font-size: 0.85rem; padding: 3rem 0; }
+  .loading { color: #444; font-size: 0.85rem; padding: 2rem 0; text-align: center; }
+
+  /* 페이징 */
+  .pagination { display: flex; align-items: center; justify-content: center; gap: 0.3rem; margin-top: 1.5rem; }
+  .page-btn { background: none; border: 1px solid #2a2a2a; border-radius: 6px; color: #555; font-size: 0.85rem; padding: 0.4rem 0.75rem; cursor: pointer; transition: color 0.2s, border-color 0.2s, background 0.2s; min-width: 36px; }
+  .page-btn:hover { color: #f0f0f0; border-color: #555; }
+  .page-btn.active { background: #00C896; border-color: #00C896; color: #0a0a0a; font-weight: 700; }
+  .page-btn:disabled { color: #333; border-color: #1a1a1a; cursor: not-allowed; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo">Q<span>ding</span></div>
+  </header>
+  <div class="category-tabs" id="categoryTabs">
+    <div class="loading">불러오는 중...</div>
+  </div>
+  <div class="board-header">
+    <div class="board-title" id="boardTitle"></div>
+    <a id="writeBtn" class="write-btn">글쓰기</a>
+  </div>
+  <div class="post-list" id="postList">
+    <div class="loading">불러오는 중...</div>
+  </div>
+  <div class="pagination" id="pagination"></div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://knwaqyeznxvhkmvqigaf.supabase.co'
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtud2FxeWV6bnh2aGttdnFpZ2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NDUxODUsImV4cCI6MjA5NzMyMTE4NX0.7WZwkIXnMxzCDvAy8JCRUp5ybXwFDQJc7GHfHhfXF_M'
+  const { createClient } = supabase
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+  const params = new URLSearchParams(window.location.search)
+  let currentCategory = params.get('category') || 'notice'
+
+  // ★ 페이징 변수
+  const PAGE_SIZE = 10
+  let currentPage = 1
+  let totalCount = 0
+  let currentCatId = null
+
+  function timeAgo(dateStr) {
+    const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000)
+    if (diff < 60) return '방금'
+    if (diff < 3600) return Math.floor(diff / 60) + '분 전'
+    if (diff < 86400) return Math.floor(diff / 3600) + '시간 전'
+    return Math.floor(diff / 86400) + '일 전'
+  }
+
+  function escapeHtml(str) {
+    if (!str) return ''
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  }
+
+  async function loadCategories() {
+    const { data, error } = await db.from('category').select('*').order('id', { ascending: true })
+    if (error || !data) return
+    const tabs = document.getElementById('categoryTabs')
+    tabs.innerHTML = data.map(c =>
+      '<a class="tab ' + (c.category === currentCategory ? 'active' : '') + '" href="?category=' + c.category + '">' + c.name + '</a>'
+    ).join('')
+    const current = data.find(c => c.category === currentCategory)
+    if (current) {
+      document.getElementById('boardTitle').textContent = current.name
+      document.getElementById('writeBtn').href = 'write.html?category=' + currentCategory
+    }
+  }
+
+  // ★ 페이징 UI 렌더링
+  function renderPagination() {
+    const totalPages = Math.ceil(totalCount / PAGE_SIZE)
+    const el = document.getElementById('pagination')
+    if (totalPages <= 1) { el.innerHTML = ''; return }
+
+    let html = ''
+
+    // 이전 버튼
+    html += '<button class="page-btn" onclick="goPage(' + (currentPage - 1) + ')" ' + (currentPage === 1 ? 'disabled' : '') + '>←</button>'
+
+    // 페이지 번호
+    for (let i = 1; i <= totalPages; i++) {
+      html += '<button class="page-btn ' + (i === currentPage ? 'active' : '') + '" onclick="goPage(' + i + ')">' + i + '</button>'
+    }
+
+    // 다음 버튼
+    html += '<button class="page-btn" onclick="goPage(' + (currentPage + 1) + ')" ' + (currentPage === totalPages ? 'disabled' : '') + '>→</button>'
+
+    el.innerHTML = html
+  }
+
+  function goPage(page) {
+    currentPage = page
+    loadPosts()
+    window.scrollTo(0, 0)
+  }
+
+  // ★ 페이징 적용된 loadPosts
+  async function loadPosts() {
+    const { data: catData } = await db
+      .from('category').select('id').eq('category', currentCategory).single()
+
+    if (!catData) {
+      document.getElementById('postList').innerHTML = '<div class="empty">카테고리를 찾을 수 없습니다</div>'
+      return
+    }
+    currentCatId = catData.id
+
+    // 전체 개수 조회
+    const { count } = await db
+      .from('board')
+      .select('*', { count: 'exact', head: true })
+      .eq('category_id', currentCatId)
+    totalCount = count || 0
+
+    // 해당 페이지 데이터
+    const from = (currentPage - 1) * PAGE_SIZE
+    const to = from + PAGE_SIZE - 1
+
+    const { data, error } = await db
+      .from('board')
+      .select('*')
+      .eq('category_id', currentCatId)
+      .order('created_at', { ascending: false })
+      .range(from, to)
+
+    const list = document.getElementById('postList')
+
+    if (error || !data) { list.innerHTML = '<div class="empty">불러오기 실패</div>'; return }
+    if (data.length === 0) { list.innerHTML = '<div class="empty">아직 게시글이 없습니다</div>'; renderPagination(); return }
+
+    list.innerHTML = data.map(post =>
+      '<a class="post-item" href="view.html?id=' + post.id + '">' +
+        '<div class="post-left">' +
+          '<div class="post-title">' + escapeHtml(post.title) + '</div>' +
+          '<div class="post-meta"><span>' + escapeHtml(post.author) + '</span><span>' + timeAgo(post.created_at) + '</span></div>' +
+        '</div>' +
+      '</a>'
+    ).join('')
+
+    renderPagination()
+  }
+
+  loadCategories()
+  loadPosts()
+</script>
+</body>
+</html>
