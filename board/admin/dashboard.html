@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qding 관리자 대시보드</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0a0a0a;
+    color: #f0f0f0;
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+
+  .container { max-width: 720px; margin: 0 auto; }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+  }
+
+  .logo { font-size: 1.4rem; font-weight: 700; color: #fff; }
+  .logo span { color: #00C896; }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .user-email { font-size: 0.8rem; color: #555; }
+
+  .logout-btn {
+    font-size: 0.8rem;
+    color: #555;
+    background: none;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+  }
+
+  .logout-btn:hover { color: #e05050; border-color: #e05050; }
+
+  .tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid #222;
+  }
+
+  .tab {
+    padding: 0.6rem 1.2rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #555;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.2s, border-color 0.2s;
+  }
+
+  .tab:hover { color: #aaa; }
+  .tab.active { color: #00C896; border-bottom-color: #00C896; }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* 테이블 */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+
+  .data-table th {
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #555;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-bottom: 1px solid #222;
+  }
+
+  .data-table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #1a1a1a;
+    color: #ccc;
+    vertical-align: middle;
+  }
+
+  .data-table tr:hover td { background: #111; }
+
+  .td-title {
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .td-content {
+    max-width: 240px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .badge {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    background: #1a2a1a;
+    color: #00C896;
+    white-space: nowrap;
+  }
+
+  .del-btn {
+    background: none;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    color: #555;
+    font-size: 0.75rem;
+    padding: 0.3rem 0.6rem;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+    white-space: nowrap;
+  }
+
+  .del-btn:hover { color: #e05050; border-color: #e05050; }
+
+  /* 카테고리 관리 */
+  .cat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .cat-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #161616;
+    border: 1px solid #222;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+  }
+
+  .cat-info { display: flex; gap: 1rem; align-items: center; }
+  .cat-slug { font-size: 0.8rem; color: #00C896; font-family: monospace; }
+  .cat-name { font-size: 0.9rem; color: #f0f0f0; }
+
+  .add-form {
+    background: #161616;
+    border: 1px solid #222;
+    border-radius: 10px;
+    padding: 1.25rem;
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .add-form .field { display: flex; flex-direction: column; gap: 0.4rem; flex: 1; min-width: 120px; }
+
+  .add-form label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #00C896;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .add-form input {
+    background: #0f0f0f;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    padding: 0.65rem 0.9rem;
+    color: #f0f0f0;
+    font-size: 0.9rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .add-form input:focus { border-color: #00C896; }
+  .add-form input::placeholder { color: #444; }
+
+  .add-btn {
+    background: #00C896;
+    color: #0a0a0a;
+    border: none;
+    border-radius: 6px;
+    padding: 0.65rem 1.25rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+
+  .add-btn:hover { background: #00b085; }
+
+  .section-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #555;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  .empty { text-align: center; color: #444; font-size: 0.85rem; padding: 2rem 0; }
+  .loading { text-align: center; color: #444; font-size: 0.85rem; padding: 2rem 0; }
+
+  .msg-bar {
+    font-size: 0.8rem;
+    color: #00C896;
+    margin-bottom: 0.75rem;
+    height: 1.2em;
+  }
+
+  .msg-bar.error { color: #e05050; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <header>
+    <div class="logo">Q<span>ding</span> <span style="font-size:0.8rem; color:#555; font-weight:400;">Admin</span></div>
+    <div class="header-right">
+      <span class="user-email" id="userEmail"></span>
+      <button class="logout-btn" onclick="logout()">로그아웃</button>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('posts')">게시글</div>
+    <div class="tab" onclick="switchTab('comments')">댓글</div>
+    <div class="tab" onclick="switchTab('categories')">카테고리</div>
+  </div>
+
+  <!-- 게시글 관리 -->
+  <div class="panel active" id="panel-posts">
+    <div class="msg-bar" id="postMsg"></div>
+    <div id="postTable"><div class="loading">불러오는 중...</div></div>
+  </div>
+
+  <!-- 댓글 관리 -->
+  <div class="panel" id="panel-comments">
+    <div class="msg-bar" id="commentMsg"></div>
+    <div id="commentTable"><div class="loading">불러오는 중...</div></div>
+  </div>
+
+  <!-- 카테고리 관리 -->
+  <div class="panel" id="panel-categories">
+    <div class="msg-bar" id="catMsg"></div>
+    <div class="section-label">카테고리 목록</div>
+    <div class="cat-list" id="catList"><div class="loading">불러오는 중...</div></div>
+
+    <div class="section-label">카테고리 추가</div>
+    <div class="add-form">
+      <div class="field">
+        <label>슬러그</label>
+        <input type="text" id="newSlug" placeholder="notice" maxlength="20">
+      </div>
+      <div class="field">
+        <label>이름</label>
+        <input type="text" id="newName" placeholder="공지사항" maxlength="20">
+      </div>
+      <button class="add-btn" onclick="addCategory()">추가</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://knwaqyeznxvhkmvqigaf.supabase.co'
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtud2FxeWV6bnh2aGttdnFpZ2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NDUxODUsImV4cCI6MjA5NzMyMTE4NX0.7WZwkIXnMxzCDvAy8JCRUp5ybXwFDQJc7GHfHhfXF_M'
+
+  const { createClient } = supabase
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+  function escapeHtml(str) {
+    if (!str) return ''
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  }
+
+  function timeAgo(dateStr) {
+    const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000)
+    if (diff < 60) return '방금'
+    if (diff < 3600) return Math.floor(diff / 60) + '분 전'
+    if (diff < 86400) return Math.floor(diff / 3600) + '시간 전'
+    return Math.floor(diff / 86400) + '일 전'
+  }
+
+  // 세션 확인
+  async function checkSession() {
+    const { data: { session } } = await db.auth.getSession()
+    if (!session) {
+      window.location.href = 'index.html'
+      return
+    }
+    document.getElementById('userEmail').textContent = session.user.email
+  }
+
+  // 탭 전환
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      t.classList.toggle('active', ['posts','comments','categories'][i] === name)
+    })
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'))
+    document.getElementById('panel-' + name).classList.add('active')
+
+    if (name === 'posts') loadPosts()
+    if (name === 'comments') loadComments()
+    if (name === 'categories') loadCategories()
+  }
+
+  // 게시글 목록
+  async function loadPosts() {
+    const { data, error } = await db
+      .from('board')
+      .select('*, category(name)')
+      .order('created_at', { ascending: false })
+
+    const el = document.getElementById('postTable')
+
+    if (error || !data || data.length === 0) {
+      el.innerHTML = '<div class="empty">게시글이 없습니다</div>'
+      return
+    }
+
+    el.innerHTML = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>번호</th>
+            <th>게시판</th>
+            <th>제목</th>
+            <th>작성자</th>
+            <th>날짜</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.map(p => `
+            <tr>
+              <td>${p.id}</td>
+              <td><span class="badge">${escapeHtml(p.category?.name || '')}</span></td>
+              <td class="td-title">${escapeHtml(p.title)}</td>
+              <td>${escapeHtml(p.author)}</td>
+              <td>${timeAgo(p.created_at)}</td>
+              <td><button class="del-btn" onclick="deletePost(${p.id})">삭제</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `
+  }
+
+  // 게시글 삭제
+  async function deletePost(id) {
+    if (!confirm('게시글을 삭제하시겠습니까?')) return
+
+    const { error } = await db.from('board').delete().eq('id', id)
+    const msg = document.getElementById('postMsg')
+
+    if (error) {
+      msg.textContent = '삭제 실패'
+      msg.className = 'msg-bar error'
+    } else {
+      msg.textContent = '삭제되었습니다 ✓'
+      msg.className = 'msg-bar'
+      loadPosts()
+    }
+    setTimeout(() => { msg.textContent = '' }, 3000)
+  }
+
+  // 댓글 목록
+  async function loadComments() {
+    const { data, error } = await db
+      .from('comment')
+      .select('*, board(title)')
+      .order('created_at', { ascending: false })
+
+    const el = document.getElementById('commentTable')
+
+    if (error || !data || data.length === 0) {
+      el.innerHTML = '<div class="empty">댓글이 없습니다</div>'
+      return
+    }
+
+    el.innerHTML = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>번호</th>
+            <th>게시글</th>
+            <th>내용</th>
+            <th>작성자</th>
+            <th>날짜</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.map(c => `
+            <tr>
+              <td>${c.id}</td>
+              <td class="td-title">${escapeHtml(c.board?.title || '')}</td>
+              <td class="td-content">${escapeHtml(c.content)}</td>
+              <td>${escapeHtml(c.author)}</td>
+              <td>${timeAgo(c.created_at)}</td>
+              <td><button class="del-btn" onclick="deleteComment(${c.id})">삭제</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `
+  }
+
+  // 댓글 삭제
+  async function deleteComment(id) {
+    if (!confirm('댓글을 삭제하시겠습니까?')) return
+
+    const { error } = await db.from('comment').delete().eq('id', id)
+    const msg = document.getElementById('commentMsg')
+
+    if (error) {
+      msg.textContent = '삭제 실패'
+      msg.className = 'msg-bar error'
+    } else {
+      msg.textContent = '삭제되었습니다 ✓'
+      msg.className = 'msg-bar'
+      loadComments()
+    }
+    setTimeout(() => { msg.textContent = '' }, 3000)
+  }
+
+  // 카테고리 목록
+  async function loadCategories() {
+    const { data, error } = await db
+      .from('category')
+      .select('*')
+      .order('id', { ascending: true })
+
+    const el = document.getElementById('catList')
+
+    if (error || !data || data.length === 0) {
+      el.innerHTML = '<div class="empty">카테고리가 없습니다</div>'
+      return
+    }
+
+    el.innerHTML = data.map(c => `
+      <div class="cat-item">
+        <div class="cat-info">
+          <span class="cat-slug">${escapeHtml(c.category)}</span>
+          <span class="cat-name">${escapeHtml(c.name)}</span>
+        </div>
+        <button class="del-btn" onclick="deleteCategory(${c.id})">삭제</button>
+      </div>
+    `).join('')
+  }
+
+  // 카테고리 추가
+  async function addCategory() {
+    const slug = document.getElementById('newSlug').value.trim()
+    const name = document.getElementById('newName').value.trim()
+    const msg = document.getElementById('catMsg')
+
+    if (!slug || !name) {
+      msg.textContent = '슬러그와 이름을 입력해주세요'
+      msg.className = 'msg-bar error'
+      setTimeout(() => { msg.textContent = '' }, 3000)
+      return
+    }
+
+    const { error } = await db.from('category').insert({ category: slug, name })
+
+    if (error) {
+      msg.textContent = '추가 실패'
+      msg.className = 'msg-bar error'
+    } else {
+      document.getElementById('newSlug').value = ''
+      document.getElementById('newName').value = ''
+      msg.textContent = '추가되었습니다 ✓'
+      msg.className = 'msg-bar'
+      loadCategories()
+    }
+    setTimeout(() => { msg.textContent = '' }, 3000)
+  }
+
+  // 카테고리 삭제
+  async function deleteCategory(id) {
+    if (!confirm('카테고리를 삭제하시겠습니까?\n해당 카테고리의 게시글도 확인하세요.')) return
+
+    const { error } = await db.from('category').delete().eq('id', id)
+    const msg = document.getElementById('catMsg')
+
+    if (error) {
+      msg.textContent = '삭제 실패 (게시글이 있으면 삭제 불가)'
+      msg.className = 'msg-bar error'
+    } else {
+      msg.textContent = '삭제되었습니다 ✓'
+      msg.className = 'msg-bar'
+      loadCategories()
+    }
+    setTimeout(() => { msg.textContent = '' }, 3000)
+  }
+
+  // 로그아웃
+  async function logout() {
+    await db.auth.signOut()
+    window.location.href = 'index.html'
+  }
+
+  checkSession()
+  loadPosts()
+</script>
+
+</body>
+</html>
