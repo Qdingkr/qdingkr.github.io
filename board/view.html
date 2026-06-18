@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qding 게시판</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0a0a0a;
+    color: #f0f0f0;
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+
+  .container { max-width: 640px; margin: 0 auto; }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .back-btn {
+    color: #555;
+    text-decoration: none;
+    font-size: 0.85rem;
+    transition: color 0.2s;
+  }
+
+  .back-btn:hover { color: #00C896; }
+
+  .logo {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #ffffff;
+  }
+
+  .logo span { color: #00C896; }
+
+  /* 게시글 */
+  .post-card {
+    background: #161616;
+    border: 1px solid #222;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .post-category {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #00C896;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  .post-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #ffffff;
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
+  }
+
+  .post-meta {
+    font-size: 0.8rem;
+    color: #555;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #1e1e1e;
+  }
+
+  .post-meta span { margin-right: 1rem; }
+
+  .post-content {
+    font-size: 0.95rem;
+    color: #ccc;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* 댓글 */
+  .section-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #555;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  .comment-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: 1.5rem;
+  }
+
+  .comment-item {
+    padding: 1rem 0;
+    border-bottom: 1px solid #1a1a1a;
+  }
+
+  .comment-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.4rem;
+  }
+
+  .comment-author {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #fff;
+  }
+
+  .comment-time {
+    font-size: 0.75rem;
+    color: #444;
+  }
+
+  .comment-content {
+    font-size: 0.9rem;
+    color: #aaa;
+    line-height: 1.5;
+    word-break: break-word;
+  }
+
+  .empty-comment {
+    text-align: center;
+    color: #444;
+    font-size: 0.85rem;
+    padding: 1.5rem 0;
+  }
+
+  /* 댓글 입력 */
+  .comment-form {
+    background: #161616;
+    border: 1px solid #222;
+    border-radius: 12px;
+    padding: 1.25rem;
+  }
+
+  .comment-form input,
+  .comment-form textarea {
+    width: 100%;
+    background: #0f0f0f;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 0.7rem 1rem;
+    color: #f0f0f0;
+    font-size: 0.9rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+    margin-bottom: 0.6rem;
+  }
+
+  .comment-form input:focus,
+  .comment-form textarea:focus { border-color: #00C896; }
+
+  .comment-form textarea {
+    resize: none;
+    height: 80px;
+    line-height: 1.5;
+  }
+
+  .comment-form input::placeholder,
+  .comment-form textarea::placeholder { color: #444; }
+
+  .comment-submit {
+    width: 100%;
+    background: #00C896;
+    color: #0a0a0a;
+    border: none;
+    border-radius: 8px;
+    padding: 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+  }
+
+  .comment-submit:hover { background: #00b085; }
+  .comment-submit:active { transform: scale(0.98); }
+  .comment-submit:disabled { background: #333; color: #555; cursor: not-allowed; }
+
+  .msg {
+    font-size: 0.8rem;
+    text-align: center;
+    margin-top: 0.5rem;
+    height: 1.2em;
+    color: #00C896;
+  }
+
+  .msg.error { color: #e05050; }
+
+  .loading { color: #444; font-size: 0.85rem; padding: 2rem 0; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <header>
+    <a class="back-btn" id="backBtn" href="index.html">← 목록</a>
+    <div class="logo">Q<span>ding</span></div>
+  </header>
+
+  <!-- 게시글 -->
+  <div class="post-card" id="postCard">
+    <div class="loading">불러오는 중...</div>
+  </div>
+
+  <!-- 댓글 목록 -->
+  <div class="section-title" id="commentCount"></div>
+  <div class="comment-list" id="commentList"></div>
+
+  <!-- 댓글 입력 -->
+  <div class="comment-form">
+    <input type="text" id="commentAuthor" placeholder="이름 또는 닉네임" maxlength="20">
+    <textarea id="commentContent" placeholder="댓글을 입력하세요"></textarea>
+    <button class="comment-submit" id="commentBtn" onclick="submitComment()">댓글 등록</button>
+    <div class="msg" id="commentMsg"></div>
+  </div>
+
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://knwaqyeznxvhkmvqigaf.supabase.co'
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtud2FxeWV6bnh2aGttdnFpZ2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NDUxODUsImV4cCI6MjA5NzMyMTE4NX0.7WZwkIXnMxzCDvAy8JCRUp5ybXwFDQJc7GHfHhfXF_M'
+
+  const { createClient } = supabase
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+  const params = new URLSearchParams(window.location.search)
+  const postId = parseInt(params.get('id'))
+
+  function timeAgo(dateStr) {
+    const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000)
+    if (diff < 60) return '방금'
+    if (diff < 3600) return Math.floor(diff / 60) + '분 전'
+    if (diff < 86400) return Math.floor(diff / 3600) + '시간 전'
+    return Math.floor(diff / 86400) + '일 전'
+  }
+
+  function escapeHtml(str) {
+    if (!str) return ''
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  }
+
+  // 게시글 로드
+  async function loadPost() {
+    const { data, error } = await db
+      .from('board')
+      .select('*, category(name, category)')
+      .eq('id', postId)
+      .single()
+
+    const card = document.getElementById('postCard')
+
+    if (error || !data) {
+      card.innerHTML = '<div class="loading">게시글을 찾을 수 없습니다</div>'
+      return
+    }
+
+    // 뒤로가기 링크에 category 반영
+    const cat = data.category?.category || 'notice'
+    document.getElementById('backBtn').href = `index.html?category=${cat}`
+
+    card.innerHTML = `
+      <div class="post-category">${escapeHtml(data.category?.name || '')}</div>
+      <div class="post-title">${escapeHtml(data.title)}</div>
+      <div class="post-meta">
+        <span>${escapeHtml(data.author)}</span>
+        <span>${timeAgo(data.created_at)}</span>
+      </div>
+      <div class="post-content">${escapeHtml(data.content)}</div>
+    `
+  }
+
+  // 댓글 로드
+  async function loadComments() {
+    const { data, error } = await db
+      .from('comment')
+      .select('*')
+      .eq('board_id', postId)
+      .order('created_at', { ascending: true })
+
+    const list = document.getElementById('commentList')
+    const countEl = document.getElementById('commentCount')
+
+    if (error || !data) {
+      list.innerHTML = '<div class="empty-comment">댓글을 불러올 수 없습니다</div>'
+      return
+    }
+
+    countEl.textContent = `댓글 ${data.length}개`
+
+    if (data.length === 0) {
+      list.innerHTML = '<div class="empty-comment">첫 댓글을 남겨보세요</div>'
+      return
+    }
+
+    list.innerHTML = data.map(c => `
+      <div class="comment-item">
+        <div class="comment-header">
+          <span class="comment-author">${escapeHtml(c.author)}</span>
+          <span class="comment-time">${timeAgo(c.created_at)}</span>
+        </div>
+        <div class="comment-content">${escapeHtml(c.content)}</div>
+      </div>
+    `).join('')
+  }
+
+  // 댓글 등록
+  async function submitComment() {
+    const author = document.getElementById('commentAuthor').value.trim()
+    const content = document.getElementById('commentContent').value.trim()
+    const btn = document.getElementById('commentBtn')
+
+    if (!author)  { showMsg('이름을 입력해주세요', true); return }
+    if (!content) { showMsg('댓글을 입력해주세요', true); return }
+
+    btn.disabled = true
+    btn.textContent = '저장 중...'
+
+    const { error } = await db
+      .from('comment')
+      .insert({ board_id: postId, author, content })
+
+    if (error) {
+      showMsg('저장 실패. 다시 시도해주세요', true)
+    } else {
+      document.getElementById('commentContent').value = ''
+      showMsg('댓글이 등록되었습니다 ✓')
+      loadComments()
+    }
+
+    btn.disabled = false
+    btn.textContent = '댓글 등록'
+  }
+
+  function showMsg(text, isError = false) {
+    const el = document.getElementById('commentMsg')
+    el.textContent = text
+    el.className = 'msg' + (isError ? ' error' : '')
+    setTimeout(() => { el.textContent = '' }, 3000)
+  }
+
+  if (postId) {
+    loadPost()
+    loadComments()
+  } else {
+    document.getElementById('postCard').innerHTML = '<div class="loading">잘못된 접근입니다</div>'
+  }
+</script>
+
+</body>
+</html>
