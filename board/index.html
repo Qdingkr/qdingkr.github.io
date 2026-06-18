@@ -144,13 +144,14 @@
     const list = document.getElementById('postList')
     if (error || !data) { list.innerHTML = '<div class="empty">불러오기 실패</div>'; return }
     if (data.length === 0) { list.innerHTML = '<div class="empty">아직 게시글이 없습니다</div>'; renderPagination(); return }
-
+    //'<div class="post-title">' + escapeHtml(post.title) + '</div>' +
+    //(commentCount > 0 ? ' <span class="comment-count">[' + commentCount + ']</span>' : '') +
     list.innerHTML = data.map(post => {
       const commentCount = post.comment[0]?.count || 0
       return '<a class="post-item" href="view.html?id=' + post.id + '">' +
         '<div class="post-left">' +
           '<div class="post-title">' + escapeHtml(post.title) +
-          (commentCount > 0 ? ' <span class="comment-count">[' + commentCount + ']</span>' : '') +
+          '<div class="post-title">' + escapeHtml(post.title) + '</div>' +
           '</div>' +
           '<div class="post-meta"><span>' + escapeHtml(post.author) + '</span><span>' + timeAgo(post.created_at) + '</span></div>' +
         '</div>' +
