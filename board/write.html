@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qding 글쓰기</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0a0a0a;
+    color: #f0f0f0;
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+
+  .container { max-width: 640px; margin: 0 auto; }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .back-btn {
+    color: #555;
+    text-decoration: none;
+    font-size: 0.85rem;
+    transition: color 0.2s;
+  }
+
+  .back-btn:hover { color: #00C896; }
+
+  .logo {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #ffffff;
+  }
+
+  .logo span { color: #00C896; }
+
+  .page-title {
+    font-size: 0.9rem;
+    color: #555;
+    margin-left: auto;
+  }
+
+  .card {
+    background: #161616;
+    border: 1px solid #222;
+    border-radius: 12px;
+    padding: 1.5rem;
+  }
+
+  .field {
+    margin-bottom: 1rem;
+  }
+
+  label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #00C896;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+  }
+
+  input, textarea, select {
+    width: 100%;
+    background: #0f0f0f;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    color: #f0f0f0;
+    font-size: 0.95rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input:focus, textarea:focus, select:focus {
+    border-color: #00C896;
+  }
+
+  select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23555' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+  }
+
+  select option { background: #1a1a1a; }
+
+  textarea {
+    resize: none;
+    height: 240px;
+    line-height: 1.6;
+  }
+
+  input::placeholder, textarea::placeholder { color: #444; }
+
+  .btn-row {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+
+  .btn-cancel {
+    flex: 1;
+    background: transparent;
+    color: #555;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 0.85rem;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+    text-align: center;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-cancel:hover { border-color: #555; color: #aaa; }
+
+  .btn-submit {
+    flex: 2;
+    background: #00C896;
+    color: #0a0a0a;
+    border: none;
+    border-radius: 8px;
+    padding: 0.85rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+  }
+
+  .btn-submit:hover { background: #00b085; }
+  .btn-submit:active { transform: scale(0.98); }
+  .btn-submit:disabled { background: #333; color: #555; cursor: not-allowed; }
+
+  .msg {
+    font-size: 0.8rem;
+    text-align: center;
+    margin-top: 0.75rem;
+    height: 1.2em;
+    color: #00C896;
+  }
+
+  .msg.error { color: #e05050; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <header>
+    <a class="back-btn" id="backBtn" href="index.html">← 목록</a>
+    <div class="logo">Q<span>ding</span></div>
+    <div class="page-title">글쓰기</div>
+  </header>
+
+  <div class="card">
+    <div class="field">
+      <label>게시판</label>
+      <select id="categorySelect"></select>
+    </div>
+    <div class="field">
+      <label>작성자</label>
+      <input type="text" id="authorInput" placeholder="이름 또는 닉네임" maxlength="20">
+    </div>
+    <div class="field">
+      <label>제목</label>
+      <input type="text" id="titleInput" placeholder="제목을 입력하세요" maxlength="100">
+    </div>
+    <div class="field">
+      <label>내용</label>
+      <textarea id="contentInput" placeholder="내용을 입력하세요"></textarea>
+    </div>
+
+    <div class="btn-row">
+      <a class="btn-cancel" id="cancelBtn" href="index.html">취소</a>
+      <button class="btn-submit" id="submitBtn" onclick="submitPost()">등록하기</button>
+    </div>
+    <div class="msg" id="statusMsg"></div>
+  </div>
+
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://knwaqyeznxvhkmvqigaf.supabase.co'
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtud2FxeWV6bnh2aGttdnFpZ2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NDUxODUsImV4cCI6MjA5NzMyMTE4NX0.7WZwkIXnMxzCDvAy8JCRUp5ybXwFDQJc7GHfHhfXF_M'
+
+  const { createClient } = supabase
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+  const params = new URLSearchParams(window.location.search)
+  const currentCategory = params.get('category') || 'notice'
+
+  // 뒤로가기 링크에 category 반영
+  document.getElementById('backBtn').href = `index.html?category=${currentCategory}`
+  document.getElementById('cancelBtn').href = `index.html?category=${currentCategory}`
+
+  // 카테고리 셀렉트 로드
+  async function loadCategories() {
+    const { data, error } = await db
+      .from('category')
+      .select('*')
+      .order('id', { ascending: true })
+
+    if (error || !data) return
+
+    const select = document.getElementById('categorySelect')
+    select.innerHTML = data.map(c => `
+      <option value="${c.id}" ${c.category === currentCategory ? 'selected' : ''}>
+        ${c.name}
+      </option>
+    `).join('')
+  }
+
+  async function submitPost() {
+    const category_id = parseInt(document.getElementById('categorySelect').value)
+    const author = document.getElementById('authorInput').value.trim()
+    const title = document.getElementById('titleInput').value.trim()
+    const content = document.getElementById('contentInput').value.trim()
+    const btn = document.getElementById('submitBtn')
+
+    if (!author) { showMsg('작성자를 입력해주세요', true); return }
+    if (!title)  { showMsg('제목을 입력해주세요', true); return }
+    if (!content) { showMsg('내용을 입력해주세요', true); return }
+
+    btn.disabled = true
+    btn.textContent = '저장 중...'
+
+    const { error } = await db
+      .from('board')
+      .insert({ category_id, author, title, content })
+
+    if (error) {
+      showMsg('저장 실패. 다시 시도해주세요', true)
+      btn.disabled = false
+      btn.textContent = '등록하기'
+    } else {
+      showMsg('등록되었습니다 ✓')
+      setTimeout(() => {
+        window.location.href = `index.html?category=${currentCategory}`
+      }, 800)
+    }
+  }
+
+  function showMsg(text, isError = false) {
+    const el = document.getElementById('statusMsg')
+    el.textContent = text
+    el.className = 'msg' + (isError ? ' error' : '')
+    setTimeout(() => { el.textContent = '' }, 3000)
+  }
+
+  loadCategories()
+</script>
+
+</body>
+</html>
