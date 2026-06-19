@@ -308,7 +308,8 @@ async function init() {
   updateOpenBadge(owner.is_open);
 
   // QR 생성
-  const waitURL = `${location.origin}/wait.html?owner=${ownerId}`;
+  const base = location.href.replace('display.html', '');
+  const waitURL = `${base}wait.html?owner=${ownerId}`;
   new QRCode(document.getElementById('qrcode'), {
     text: waitURL,
     width: 200, height: 200,
