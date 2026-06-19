@@ -34,13 +34,14 @@
   .call-left { flex: 1; }
   .call-message { font-size: 0.9rem; color: #1a1a1a; margin-bottom: 0.2rem; }
   .call-meta { font-size: 0.75rem; color: #aaa; }
+  /* ★ 테이블 이름 배지 */
+  .call-table-badge { display: inline-block; font-size: 0.7rem; font-weight: 600; color: #00A876; background: #e8f5f0; padding: 0.15rem 0.4rem; border-radius: 4px; margin-right: 0.4rem; }
   .call-status { display: flex; gap: 0.5rem; align-items: center; }
   .status-badge { font-size: 0.7rem; font-weight: 600; padding: 0.2rem 0.5rem; border-radius: 4px; }
   .status-badge.pending { background: #fff3e0; color: #e65100; }
   .status-badge.done { background: #e8f5e9; color: #2e7d32; }
   .done-btn { background: none; border: 1px solid #ddd; border-radius: 6px; color: #aaa; font-size: 0.75rem; padding: 0.3rem 0.6rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
   .done-btn:hover { border-color: #00A876; color: #00A876; }
-  /* ★ 삭제 버튼 */
   .del-btn { background: none; border: 1px solid #ddd; border-radius: 6px; color: #ddd; font-size: 0.75rem; padding: 0.3rem 0.6rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
   .del-btn:hover { border-color: #e05050; color: #e05050; }
   .empty { text-align: center; color: #bbb; font-size: 0.85rem; padding: 2rem 0; }
@@ -67,10 +68,10 @@
   </div>
 
   <div class="section-header">
-    <div class="section-title" id="callsTitle">호출 현황</div>
+    <div class="section-title" id="callsTitle">전체 호출 현황</div>
     <div class="msg-bar" id="msgBar"></div>
   </div>
-  <div id="callsList"><div class="loading">테이블을 선택하세요</div></div>
+  <div id="callsList"><div class="loading">불러오는 중...</div></div>
 </div>
 
 <script>
@@ -79,7 +80,7 @@
   const { createClient } = supabase
   const db = createClient(SUPABASE_URL, SUPABASE_KEY)
 
-  let selectedTableId = null
+  let selectedTableId = null  // null = 전체 보기
 
   function timeAgo(dateStr) {
     const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000)
@@ -107,7 +108,14 @@
       return
     }
 
-    grid.innerHTML = data.map(t => {
+    // ★ 전체 보기 카드 추가
+    let html = '<div class="table-card ' + (selectedTableId === null ? 'active' : '') + '" id="tc-all" onclick="selectTable(null, \'전체\')">' +
+      '<div class="table-name">전체</div>' +
+      '<div class="table-desc">모든 테이블 호출</div>' +
+      '<span class="pending-badge none">전체 보기</span>' +
+    '</div>'
+
+    html += data.map(t => {
       const pendingCount = t.qr_calls[0]?.count || 0
       return '<div class="table-card" id="tc-' + t.id + '" onclick="selectTable(' + t.id + ', \'' + t.name + '\')">' +
         '<div class="table-name">' + t.name + '</div>' +
@@ -118,24 +126,31 @@
       '</div>'
     }).join('')
 
-    if (data.length > 0) selectTable(data[0].id, data[0].name)
+    grid.innerHTML = html
   }
 
   function selectTable(id, name) {
     selectedTableId = id
     document.querySelectorAll('.table-card').forEach(c => c.classList.remove('active'))
-    const card = document.getElementById('tc-' + id)
+    const cardId = id === null ? 'tc-all' : 'tc-' + id
+    const card = document.getElementById(cardId)
     if (card) card.classList.add('active')
     document.getElementById('callsTitle').textContent = name + ' 호출 현황'
-    loadCalls(id)
+    loadCalls()
   }
 
-  async function loadCalls(tableId) {
-    const { data, error } = await db
+  // ★ 전체 또는 선택 테이블 호출 조회
+  async function loadCalls() {
+    let query = db
       .from('qr_calls')
-      .select('*')
-      .eq('table_id', tableId)
+      .select('*, qr_tables(name)')
       .order('created_at', { ascending: false })
+
+    if (selectedTableId !== null) {
+      query = query.eq('table_id', selectedTableId)
+    }
+
+    const { data, error } = await query
 
     const el = document.getElementById('callsList')
     if (error || !data || data.length === 0) {
@@ -147,7 +162,10 @@
       data.map(c =>
         '<div class="call-item">' +
           '<div class="call-left">' +
-            '<div class="call-message">' + c.message + '</div>' +
+            '<div class="call-message">' +
+              '<span class="call-table-badge">' + (c.qr_tables?.name || '') + '</span>' +
+              c.message +
+            '</div>' +
             '<div class="call-meta">' + timeAgo(c.created_at) + '</div>' +
           '</div>' +
           '<div class="call-status">' +
@@ -167,10 +185,9 @@
     msg.textContent = '처리 완료 ✓'
     setTimeout(() => { msg.textContent = '' }, 2000)
     loadTables()
-    if (selectedTableId) loadCalls(selectedTableId)
+    loadCalls()
   }
 
-  // ★ 삭제
   async function deleteCall(id) {
     const { error } = await db.from('qr_calls').delete().eq('id', id)
     const msg = document.getElementById('msgBar')
@@ -178,7 +195,7 @@
     msg.textContent = '삭제됨 ✓'
     setTimeout(() => { msg.textContent = '' }, 2000)
     loadTables()
-    if (selectedTableId) loadCalls(selectedTableId)
+    loadCalls()
   }
 
   async function logout() {
@@ -186,31 +203,24 @@
     window.location.href = 'login.html'
   }
 
-  // ★ 브라우저 알림 권한 요청
   async function requestNotificationPermission() {
     if ('Notification' in window && Notification.permission === 'default') {
       await Notification.requestPermission()
     }
   }
 
-  // ★ 브라우저 알림 + TTS
-  function showNotification(message) {
-    // 브라우저 알림
+  function showNotification(tableName, message) {
     if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('🔔 새 호출', { body: message })
+      new Notification('🔔 ' + tableName + ' 호출', { body: message })
     }
-
-    // TTS
     if ('speechSynthesis' in window) {
-      const text = '호출이 왔습니다. ' + message
+      const text = tableName + '에서 ' + message + ' 호출이 왔습니다'
       const utterance = new SpeechSynthesisUtterance(text)
       utterance.lang = 'ko-KR'
       utterance.rate = 0.9
       utterance.volume = 1
       speechSynthesis.speak(utterance)
     }
-
-    // 탭 타이틀 깜빡임
     let blink = 0
     const original = document.title
     const timer = setInterval(() => {
@@ -220,26 +230,22 @@
     }, 600)
   }
 
-  // ★ Polling — 5초마다 새 호출 확인
+  // ★ Polling — 전체 테이블 대상
   let lastCallId = 0
 
   async function pollCalls() {
-    if (!selectedTableId) return
-
     const { data } = await db
       .from('qr_calls')
-      .select('*')
-      .eq('table_id', selectedTableId)
+      .select('*, qr_tables(name)')
       .eq('status', 'pending')
       .order('id', { ascending: false })
       .limit(1)
 
     if (data && data.length > 0 && data[0].id > lastCallId) {
       if (lastCallId > 0) {
-        // 새 호출 감지
-        loadCalls(selectedTableId)
+        loadCalls()
         loadTables()
-        showNotification(data[0].message)
+        showNotification(data[0].qr_tables?.name || '테이블', data[0].message)
       }
       lastCallId = data[0].id
     }
@@ -249,6 +255,7 @@
 
   checkSession()
   loadTables()
+  loadCalls()
   requestNotificationPermission()
   pollCalls()
 </script>
