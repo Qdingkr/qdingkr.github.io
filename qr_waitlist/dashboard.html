@@ -459,6 +459,17 @@
       </div>
     </div>
 
+    <!-- 전광판 -->
+    <div class="section-header">
+      <span class="section-title">전광판</span>
+    </div>
+    <div class="qr-section">
+      <div>태블릿이나 보조 모니터에 띄워두세요</div>
+      <div class="btn-row" style="margin-top:12px;">
+        <button class="btn btn-primary" onclick="openDisplay()">📺 전광판 열기</button>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -661,6 +672,12 @@ function downloadQR() {
   a.download = `qding-wait-${storeName}.png`;
   a.href = canvas.toDataURL();
   a.click();
+}
+
+// 전광판 열기
+function openDisplay() {
+  const url = `${location.origin}/display.html?owner=${ownerId}`;
+  window.open(url, '_blank');
 }
 
 // 링크 복사
