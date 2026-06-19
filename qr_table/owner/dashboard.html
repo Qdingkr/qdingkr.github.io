@@ -205,20 +205,21 @@
 
   // ★ Realtime 구독
   function subscribeRealtime() {
-    db.channel('qr_calls_changes')
+    const channel = db.channel('qr_calls_changes')
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
-        table: 'qr_calls'
+        table: 'qr_calls',
+        filter: undefined
       }, (payload) => {
-        // 내 테이블 호출인지 확인
-        if (payload.new.table_id === selectedTableId) {
-          loadCalls(selectedTableId)
-        }
+        console.log('Realtime 이벤트:', payload)
+        if (selectedTableId) loadCalls(selectedTableId)
         loadTables()
         showNotification(payload.new.message)
       })
-      .subscribe()
+      .subscribe((status) => {
+        console.log('Realtime 상태:', status)
+      })
   }
 
   checkSession()
