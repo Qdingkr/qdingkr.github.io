@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qding 전광판</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<style>
+  :root {
+    --bg: #f5f5f5;
+    --surface: #ffffff;
+    --border: #e0e0e0;
+    --accent: #00b359;
+    --warn: #f57c00;
+    --text: #1a1a1a;
+    --text-dim: #888;
+    --radius: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 상단 헤더 */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--accent);
+    letter-spacing: -1px;
+  }
+
+  .store-label {
+    font-size: 1rem;
+    color: var(--text-dim);
+  }
+
+  .open-badge {
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+
+  .badge-open { background: #e6f7ef; color: var(--accent); }
+  .badge-closed { background: #ffeaea; color: #e53935; }
+
+  /* 메인 레이아웃 */
+  .main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 0;
+  }
+
+  /* 왼쪽 — 호출 번호 */
+  .left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    gap: 16px;
+  }
+
+  .call-label {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .call-number {
+    font-size: 14rem;
+    font-weight: 900;
+    color: var(--accent);
+    line-height: 1;
+    letter-spacing: -8px;
+    transition: all 0.3s ease;
+  }
+
+  .call-number.animate {
+    animation: pop 0.4s ease;
+  }
+
+  @keyframes pop {
+    0% { transform: scale(0.8); opacity: 0.5; }
+    60% { transform: scale(1.08); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .call-sub {
+    font-size: 1.4rem;
+    color: var(--text-dim);
+    font-weight: 500;
+  }
+
+  .no-call {
+    font-size: 2rem;
+    color: var(--text-dim);
+    font-weight: 600;
+  }
+
+  /* 대기 현황 바 */
+  .wait-bar {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+  }
+
+  .wait-chip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 8px 20px;
+    font-size: 0.95rem;
+    color: var(--text-dim);
+    font-weight: 600;
+  }
+
+  .wait-chip span {
+    color: var(--accent);
+    font-size: 1.1rem;
+    font-weight: 800;
+    margin-right: 4px;
+  }
+
+  /* 오른쪽 — QR */
+  .right {
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 24px;
+    gap: 16px;
+  }
+
+  .qr-label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-dim);
+    text-align: center;
+  }
+
+  #qrcode {
+    background: #fff;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+
+  .qr-desc {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    text-align: center;
+    line-height: 1.5;
+  }
+
+  /* 하단 */
+  .footer {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 10px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .polling-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: inline-block;
+    margin-right: 6px;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+  }
+
+  .footer-note {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+
+  .time-display {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    font-weight: 600;
+  }
+
+  /* 에러 */
+  .error-screen {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+    color: var(--text-dim);
+    font-size: 1.1rem;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="logo">Qding</div>
+    <div class="store-label" id="store-label">-</div>
+  </div>
+  <div class="open-badge badge-open" id="open-badge">영업중</div>
+</div>
+
+<div class="main" id="main-area">
+
+  <!-- 왼쪽: 호출 번호 -->
+  <div class="left">
+    <div class="call-label">현재 호출 번호</div>
+
+    <div id="call-number-wrap">
+      <div class="no-call" id="no-call-msg">아직 호출된 번호가 없어요</div>
+      <div class="call-number" id="call-number" style="display:none">-</div>
+    </div>
+
+    <div class="call-sub" id="call-sub" style="display:none">번 고객님, 입장해주세요 👋</div>
+
+    <div class="wait-bar">
+      <div class="wait-chip"><span id="chip-waiting">0</span>명 대기중</div>
+      <div class="wait-chip"><span id="chip-done">0</span>명 완료</div>
+    </div>
+  </div>
+
+  <!-- 오른쪽: QR -->
+  <div class="right">
+    <div class="qr-label">번호표 뽑기</div>
+    <div id="qrcode"></div>
+    <div class="qr-desc">QR을 스캔하면<br>대기 번호표를 받을 수 있어요</div>
+  </div>
+
+</div>
+
+<div class="footer">
+  <div class="footer-note">
+    <span class="polling-dot"></span>실시간 업데이트 중
+  </div>
+  <div class="time-display" id="time-display">-</div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://knwaqyeznxvhkmvqigaf.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtud2FxeWV6bnh2aGttdnFpZ2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NDUxODUsImV4cCI6MjA5NzMyMTE4NX0.7WZwkIXnMxzCDvAy8JCRUp5ybXwFDQJc7GHfHhfXF_M';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let ownerId = null;
+let lastCalledNumber = null;
+let qrGenerated = false;
+
+function getOwnerId() {
+  const params = new URLSearchParams(location.search);
+  return params.get('owner');
+}
+
+async function init() {
+  ownerId = getOwnerId();
+  if (!ownerId) {
+    document.getElementById('main-area').innerHTML =
+      '<div class="error-screen">⚠️ owner 파라미터가 없어요</div>';
+    return;
+  }
+
+  // 가게 정보
+  const { data: owner } = await db
+    .from('qr_owers')
+    .select('store_name, is_open')
+    .eq('id', ownerId)
+    .single();
+
+  if (!owner) {
+    document.getElementById('main-area').innerHTML =
+      '<div class="error-screen">⚠️ 가게 정보를 찾을 수 없어요</div>';
+    return;
+  }
+
+  document.getElementById('store-label').textContent = owner.store_name;
+  updateOpenBadge(owner.is_open);
+
+  // QR 생성
+  const waitURL = `${location.origin}/wait.html?owner=${ownerId}`;
+  new QRCode(document.getElementById('qrcode'), {
+    text: waitURL,
+    width: 200, height: 200,
+    colorDark: '#000', colorLight: '#fff'
+  });
+
+  // 폴링 시작
+  fetchData();
+  setInterval(fetchData, 5000);
+
+  // 시계
+  updateClock();
+  setInterval(updateClock, 1000);
+}
+
+async function fetchData() {
+  // 영업 상태
+  const { data: owner } = await db
+    .from('qr_owers')
+    .select('is_open')
+    .eq('id', ownerId)
+    .single();
+
+  if (owner) updateOpenBadge(owner.is_open);
+
+  // 호출된 번호 (가장 최근)
+  const { data: called } = await db
+    .from('qr_waitlist')
+    .select('number')
+    .eq('owner_id', ownerId)
+    .eq('status', 'called')
+    .order('called_at', { ascending: false })
+    .limit(1);
+
+  // 대기 카운트
+  const { count: waitingCount } = await db
+    .from('qr_waitlist')
+    .select('*', { count: 'exact', head: true })
+    .eq('owner_id', ownerId)
+    .eq('status', 'waiting');
+
+  // 완료 카운트
+  const { count: doneCount } = await db
+    .from('qr_waitlist')
+    .select('*', { count: 'exact', head: true })
+    .eq('owner_id', ownerId)
+    .eq('status', 'done');
+
+  document.getElementById('chip-waiting').textContent = waitingCount || 0;
+  document.getElementById('chip-done').textContent = doneCount || 0;
+
+  const calledNum = called && called.length > 0 ? called[0].number : null;
+  updateCallDisplay(calledNum);
+}
+
+function updateCallDisplay(num) {
+  const noCallMsg = document.getElementById('no-call-msg');
+  const callNum = document.getElementById('call-number');
+  const callSub = document.getElementById('call-sub');
+
+  if (!num) {
+    noCallMsg.style.display = 'block';
+    callNum.style.display = 'none';
+    callSub.style.display = 'none';
+    return;
+  }
+
+  noCallMsg.style.display = 'none';
+  callNum.style.display = 'block';
+  callSub.style.display = 'block';
+
+  if (num !== lastCalledNumber) {
+    callNum.textContent = num;
+    lastCalledNumber = num;
+
+    // 팝 애니메이션
+    callNum.classList.remove('animate');
+    void callNum.offsetWidth;
+    callNum.classList.add('animate');
+
+    // TTS
+    speak(`${num}번 고객님, 입장해주세요`);
+  }
+}
+
+function updateOpenBadge(isOpen) {
+  const badge = document.getElementById('open-badge');
+  badge.textContent = isOpen ? '영업중' : '영업종료';
+  badge.className = 'open-badge ' + (isOpen ? 'badge-open' : 'badge-closed');
+}
+
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'ko-KR';
+  u.rate = 0.9;
+  speechSynthesis.speak(u);
+}
+
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2, '0');
+  const m = String(now.getMinutes()).padStart(2, '0');
+  const s = String(now.getSeconds()).padStart(2, '0');
+  document.getElementById('time-display').textContent = `${h}:${m}:${s}`;
+}
+
+init();
+</script>
+</body>
+</html>
