@@ -522,7 +522,8 @@ async function initDashboard(user) {
   updateOpenLabel(owner.is_open);
 
   // QR 생성
-  const waitURL = `${location.origin}/wait.html?owner=${ownerId}`;
+  const base = location.href.replace('dashboard.html', '');
+  const waitURL = `${base}wait.html?owner=${ownerId}`;
   document.getElementById('qr-url-text').textContent = waitURL;
   new QRCode(document.getElementById('qrcode'), {
     text: waitURL,
@@ -676,7 +677,8 @@ function downloadQR() {
 
 // 전광판 열기
 function openDisplay() {
-  const url = `${location.origin}/display.html?owner=${ownerId}`;
+  const base = location.href.replace('dashboard.html', '');
+  const url = `${base}display.html?owner=${ownerId}`;
   window.open(url, '_blank');
 }
 
