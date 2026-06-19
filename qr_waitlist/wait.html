@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qding 대기표</title>
+<meta name="theme-color" content="#00b359">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #f5f5f5;
+    --surface: #ffffff;
+    --border: #e0e0e0;
+    --accent: #00b359;
+    --accent-dim: #009948;
+    --danger: #e53935;
+    --warn: #f57c00;
+    --text: #1a1a1a;
+    --text-dim: #666;
+    --radius: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .logo {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--accent);
+    letter-spacing: -1px;
+    margin-bottom: 4px;
+  }
+
+  .store-name {
+    font-size: 1rem;
+    color: var(--text-dim);
+    margin-bottom: 28px;
+    text-align: center;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 24px;
+    width: 100%;
+    max-width: 360px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .card-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  textarea {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-size: 0.95rem;
+    width: 100%;
+    outline: none;
+    resize: none;
+    height: 80px;
+    font-family: inherit;
+    transition: border-color 0.2s;
+  }
+
+  textarea:focus { border-color: var(--accent); }
+
+  .btn {
+    padding: 14px 20px;
+    border-radius: 10px;
+    border: none;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    width: 100%;
+  }
+
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-dim); }
+
+  /* 번호표 화면 */
+  .ticket {
+    background: var(--surface);
+    border: 2px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 32px 24px;
+    width: 100%;
+    max-width: 360px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .ticket-label {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    font-weight: 600;
+  }
+
+  .ticket-num {
+    font-size: 5rem;
+    font-weight: 900;
+    color: var(--accent);
+    line-height: 1;
+    letter-spacing: -2px;
+  }
+
+  .ticket-store {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px dashed var(--border);
+    margin: 8px 0;
+  }
+
+  .wait-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+  }
+
+  .wait-info-label {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+  }
+
+  .wait-info-value {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .wait-info-value.accent { color: var(--accent); }
+
+  .memo-display {
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    text-align: left;
+    margin-top: 4px;
+  }
+
+  /* 상태 배지 */
+  .status-badge {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin: 4px auto;
+  }
+
+  .badge-waiting { background: #e6f7ef; color: var(--accent); }
+  .badge-called {
+    background: #fff3e0;
+    color: var(--warn);
+    animation: blink 1s infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .called-banner {
+    background: #fff3e0;
+    border: 2px solid var(--warn);
+    border-radius: var(--radius);
+    padding: 16px;
+    text-align: center;
+    margin-top: 8px;
+  }
+
+  .called-banner .called-icon { font-size: 2rem; }
+  .called-banner .called-text {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--warn);
+    margin-top: 4px;
+  }
+
+  /* 영업종료 / 에러 */
+  .info-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 40px 24px;
+    text-align: center;
+    max-width: 360px;
+    width: 100%;
+  }
+
+  .info-icon { font-size: 3rem; margin-bottom: 12px; }
+  .info-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 8px; }
+  .info-desc { font-size: 0.9rem; color: var(--text-dim); }
+
+  .polling-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: inline-block;
+    margin-right: 4px;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+  }
+
+  .refresh-note {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-top: 12px;
+    text-align: center;
+  }
+
+  #screen-loading,
+  #screen-closed,
+  #screen-error,
+  #screen-register,
+  #screen-ticket { display: none; }
+</style>
+</head>
+<body>
+
+<div class="logo">Qding</div>
+<div class="store-name" id="store-name">-</div>
+
+<!-- 로딩 -->
+<div id="screen-loading">
+  <div class="info-box">
+    <div class="info-icon">⏳</div>
+    <div class="info-title">잠시만요...</div>
+  </div>
+</div>
+
+<!-- 영업종료 -->
+<div id="screen-closed">
+  <div class="info-box">
+    <div class="info-icon">🚫</div>
+    <div class="info-title">현재 영업 종료 상태예요</div>
+    <div class="info-desc">영업 중일 때 다시 방문해주세요 😊</div>
+  </div>
+</div>
+
+<!-- 에러 -->
+<div id="screen-error">
+  <div class="info-box">
+    <div class="info-icon">⚠️</div>
+    <div class="info-title">가게 정보를 찾을 수 없어요</div>
+    <div class="info-desc">QR 코드를 다시 스캔해주세요</div>
+  </div>
+</div>
+
+<!-- 번호표 등록 -->
+<div id="screen-register">
+  <div class="card">
+    <div class="card-title">대기 등록</div>
+    <textarea id="memo-input" placeholder="요청사항이 있으면 적어주세요 (선택)"></textarea>
+    <button class="btn btn-primary" onclick="registerWait()">번호표 뽑기 🎫</button>
+  </div>
+</div>
+
+<!-- 번호표 -->
+<div id="screen-ticket">
+  <div class="ticket">
+    <div class="ticket-label">대기 번호</div>
+    <div class="ticket-num" id="my-number">-</div>
+    <div class="ticket-store" id="ticket-store">-</div>
+
+    <div id="called-banner" class="called-banner" style="display:none">
+      <div class="called-icon">🔔</div>
+      <div class="called-text">입장해주세요!</div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="wait-info-row">
+      <span class="wait-info-label">상태</span>
+      <span class="status-badge badge-waiting" id="status-badge">대기중</span>
+    </div>
+
+    <div class="wait-info-row">
+      <span class="wait-info-label">앞에 남은 인원</span>
+      <span class="wait-info-value accent" id="ahead-count">-명</span>
+    </div>
+
+    <div class="wait-info-row">
+      <span class="wait-info-label">예상 대기</span>
+      <span class="wait-info-value" id="est-time">계산중...</span>
+    </div>
+
+    <div id="memo-display" class="memo-display" style="display:none"></div>
+  </div>
+
+  <div class="refresh-note">
+    <span class="polling-dot"></span>5초마다 자동 갱신돼요
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://knwaqyeznxvhkmvqigaf.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtud2FxeWV6bnh2aGttdnFpZ2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NDUxODUsImV4cCI6MjA5NzMyMTE4NX0.7WZwkIXnMxzCDvAy8JCRUp5ybXwFDQJc7GHfHhfXF_M';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const TICKET_EXPIRE_MS = 12 * 60 * 60 * 1000; // 12시간
+const DEFAULT_WAIT_MIN = 5; // 기본 예상 대기 분
+
+let ownerId = null;
+let myTicket = null;
+let pollTimer = null;
+
+function show(screenId) {
+  ['screen-loading','screen-closed','screen-error','screen-register','screen-ticket']
+    .forEach(id => document.getElementById(id).style.display = id === screenId ? 'block' : 'none');
+}
+
+// URL에서 owner 파싱
+function getOwnerId() {
+  const params = new URLSearchParams(location.search);
+  return params.get('owner');
+}
+
+// sessionStorage 티켓 로드
+function loadTicket() {
+  try {
+    const raw = sessionStorage.getItem('qding_ticket');
+    if (!raw) return null;
+    const t = JSON.parse(raw);
+    // 12시간 만료 체크
+    if (Date.now() - t.issued_at > TICKET_EXPIRE_MS) {
+      sessionStorage.removeItem('qding_ticket');
+      return null;
+    }
+    // owner 일치 확인
+    if (t.owner_id !== ownerId) {
+      sessionStorage.removeItem('qding_ticket');
+      return null;
+    }
+    return t;
+  } catch { return null; }
+}
+
+function saveTicket(ticket) {
+  sessionStorage.setItem('qding_ticket', JSON.stringify({
+    ...ticket,
+    owner_id: ownerId,
+    issued_at: Date.now()
+  }));
+}
+
+// 초기화
+async function init() {
+  show('screen-loading');
+  ownerId = getOwnerId();
+
+  if (!ownerId) { show('screen-error'); return; }
+
+  // 가게 정보 로드
+  const { data: owner, error } = await db
+    .from('qr_owers')
+    .select('store_name, is_open')
+    .eq('id', ownerId)
+    .single();
+
+  if (error || !owner) { show('screen-error'); return; }
+
+  document.getElementById('store-name').textContent = owner.store_name;
+  document.getElementById('ticket-store').textContent = owner.store_name;
+
+  if (!owner.is_open) { show('screen-closed'); return; }
+
+  // 기존 티켓 확인
+  myTicket = loadTicket();
+
+  if (myTicket) {
+    // DB에서 아직 유효한지 확인
+    const { data: row } = await db
+      .from('qr_waitlist')
+      .select('*')
+      .eq('id', myTicket.id)
+      .single();
+
+    if (row && row.status !== 'done') {
+      myTicket = { ...myTicket, ...row };
+      showTicket();
+      startPolling();
+      return;
+    } else {
+      // 완료됐거나 삭제됨
+      sessionStorage.removeItem('qding_ticket');
+    }
+  }
+
+  show('screen-register');
+}
+
+// 번호표 등록
+async function registerWait() {
+  const memo = document.getElementById('memo-input').value.trim();
+
+  // 다음 번호 채번 (오늘 기준 max + 1)
+  const today = new Date().toISOString().split('T')[0];
+  const { data: rows } = await db
+    .from('qr_waitlist')
+    .select('number')
+    .eq('owner_id', ownerId)
+    .gte('created_at', today + 'T00:00:00')
+    .order('number', { ascending: false })
+    .limit(1);
+
+  const nextNum = rows && rows.length > 0 ? rows[0].number + 1 : 1;
+
+  const { data: inserted, error } = await db
+    .from('qr_waitlist')
+    .insert({
+      owner_id: ownerId,
+      number: nextNum,
+      memo: memo || null
+    })
+    .select()
+    .single();
+
+  if (error || !inserted) {
+    alert('등록 중 오류가 발생했어요. 다시 시도해주세요.');
+    return;
+  }
+
+  myTicket = inserted;
+  saveTicket(inserted);
+  showTicket();
+  startPolling();
+}
+
+// 번호표 화면
+function showTicket() {
+  show('screen-ticket');
+  document.getElementById('my-number').textContent = myTicket.number;
+
+  const memo = myTicket.memo;
+  const memoEl = document.getElementById('memo-display');
+  if (memo) {
+    memoEl.style.display = 'block';
+    memoEl.textContent = '💬 ' + memo;
+  }
+
+  updateTicketStatus(myTicket.status);
+}
+
+// 폴링
+function startPolling() {
+  fetchStatus();
+  pollTimer = setInterval(fetchStatus, 5000);
+}
+
+async function fetchStatus() {
+  if (!myTicket) return;
+
+  const { data: row } = await db
+    .from('qr_waitlist')
+    .select('*')
+    .eq('id', myTicket.id)
+    .single();
+
+  if (!row) {
+    // 삭제된 경우
+    clearInterval(pollTimer);
+    sessionStorage.removeItem('qding_ticket');
+    show('screen-register');
+    return;
+  }
+
+  if (row.status === 'done') {
+    clearInterval(pollTimer);
+    sessionStorage.removeItem('qding_ticket');
+    show('screen-register');
+    return;
+  }
+
+  myTicket = { ...myTicket, ...row };
+  updateTicketStatus(row.status);
+  await updateWaitInfo();
+}
+
+function updateTicketStatus(status) {
+  const badge = document.getElementById('status-badge');
+  const calledBanner = document.getElementById('called-banner');
+
+  if (status === 'called') {
+    badge.textContent = '입장하세요!';
+    badge.className = 'status-badge badge-called';
+    calledBanner.style.display = 'block';
+  } else {
+    badge.textContent = '대기중';
+    badge.className = 'status-badge badge-waiting';
+    calledBanner.style.display = 'none';
+  }
+}
+
+// 앞에 몇 명, 예상 시간
+async function updateWaitInfo() {
+  // 내 앞에 waiting 인원
+  const { data: ahead } = await db
+    .from('qr_waitlist')
+    .select('number')
+    .eq('owner_id', ownerId)
+    .eq('status', 'waiting')
+    .lt('number', myTicket.number);
+
+  const aheadCount = ahead ? ahead.length : 0;
+  document.getElementById('ahead-count').textContent = aheadCount + '명';
+
+  // 평균 처리시간 계산 (최근 5건)
+  const { data: done } = await db
+    .from('qr_waitlist')
+    .select('called_at, done_at')
+    .eq('owner_id', ownerId)
+    .eq('status', 'done')
+    .not('called_at', 'is', null)
+    .not('done_at', 'is', null)
+    .order('done_at', { ascending: false })
+    .limit(5);
+
+  let avgMin = DEFAULT_WAIT_MIN;
+  if (done && done.length >= 3) {
+    const times = done.map(r =>
+      (new Date(r.done_at) - new Date(r.called_at)) / 60000
+    );
+    avgMin = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
+  }
+
+  const estMin = aheadCount * avgMin;
+  document.getElementById('est-time').textContent =
+    aheadCount === 0 ? '곧 입장이에요!' : `약 ${estMin}분`;
+}
+
+init();
+</script>
+</body>
+</html>
