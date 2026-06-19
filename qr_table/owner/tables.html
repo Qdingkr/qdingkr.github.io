@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Qding QR - 테이블 관리</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #1a1a1a; min-height: 100vh; padding: 2rem 1rem; }
@@ -15,17 +16,14 @@
   .logo { font-size: 1.4rem; font-weight: 700; color: #1a1a1a; }
   .logo span { color: #00A876; }
   .page-title { font-size: 0.9rem; color: #aaa; margin-left: auto; }
-
   .card { background: #fff; border: 1px solid #e8e8e8; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
   .card-title { font-size: 0.8rem; font-weight: 600; color: #00A876; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 1rem; }
-
   .field { margin-bottom: 1rem; }
   label { display: block; font-size: 0.75rem; font-weight: 600; color: #00A876; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.4rem; }
   input, textarea { width: 100%; background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 8px; padding: 0.75rem 1rem; color: #1a1a1a; font-size: 0.9rem; font-family: inherit; outline: none; transition: border-color 0.2s; }
   input:focus, textarea:focus { border-color: #00A876; background: #fff; }
   input::placeholder, textarea::placeholder { color: #bbb; }
   textarea { resize: none; height: 80px; line-height: 1.5; }
-
   .btn-submit { width: 100%; background: #00A876; color: #fff; border: none; border-radius: 8px; padding: 0.85rem; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: background 0.2s, transform 0.1s; }
   .btn-submit:hover { background: #009068; }
   .btn-submit:active { transform: scale(0.98); }
@@ -34,14 +32,23 @@
   .msg.error { color: #e05050; }
 
   /* 테이블 목록 */
-  .table-item { display: flex; align-items: center; justify-content: space-between; padding: 1rem 0; border-bottom: 1px solid #f0f0f0; }
+  .table-item { padding: 1.25rem 0; border-bottom: 1px solid #f0f0f0; }
   .table-item:last-child { border-bottom: none; }
+  .table-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1rem; }
   .table-info { flex: 1; }
   .table-name { font-size: 0.95rem; font-weight: 600; color: #1a1a1a; margin-bottom: 0.2rem; }
-  .table-desc { font-size: 0.75rem; color: #aaa; }
-  .table-url { font-size: 0.7rem; color: #00A876; margin-top: 0.2rem; word-break: break-all; }
+  .table-desc { font-size: 0.75rem; color: #aaa; margin-bottom: 0.3rem; }
+  .table-url { font-size: 0.7rem; color: #00A876; word-break: break-all; }
   .del-btn { background: none; border: 1px solid #e0e0e0; border-radius: 6px; color: #bbb; font-size: 0.75rem; padding: 0.3rem 0.6rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; margin-left: 1rem; }
   .del-btn:hover { color: #e05050; border-color: #e05050; }
+
+  /* QR 영역 */
+  .qr-area { display: flex; align-items: flex-start; gap: 1rem; }
+  .qr-wrap { background: #fff; border: 1px solid #e8e8e8; border-radius: 8px; padding: 0.75rem; flex-shrink: 0; }
+  .qr-wrap canvas { display: block; }
+  .qr-actions { display: flex; flex-direction: column; gap: 0.5rem; justify-content: center; }
+  .qr-btn { background: none; border: 1px solid #e0e0e0; border-radius: 6px; color: #555; font-size: 0.78rem; padding: 0.4rem 0.8rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; text-align: center; }
+  .qr-btn:hover { border-color: #00A876; color: #00A876; }
 
   .empty { text-align: center; color: #bbb; font-size: 0.85rem; padding: 2rem 0; }
   .loading { text-align: center; color: #bbb; font-size: 0.85rem; padding: 2rem 0; }
@@ -58,7 +65,6 @@
     <div class="page-title">테이블 관리</div>
   </header>
 
-  <!-- 테이블 추가 -->
   <div class="card">
     <div class="card-title">테이블 추가</div>
     <div class="field">
@@ -73,7 +79,6 @@
     <div class="msg" id="addMsg"></div>
   </div>
 
-  <!-- 테이블 목록 -->
   <div class="section-title">등록된 테이블</div>
   <div class="msg-bar" id="listMsg"></div>
   <div class="card">
@@ -108,14 +113,50 @@
 
     el.innerHTML = data.map(t =>
       '<div class="table-item">' +
-        '<div class="table-info">' +
-          '<div class="table-name">' + t.name + '</div>' +
-          (t.description ? '<div class="table-desc">' + t.description + '</div>' : '') +
-          '<div class="table-url">' + BASE_URL + t.id + '</div>' +
+        '<div class="table-top">' +
+          '<div class="table-info">' +
+            '<div class="table-name">' + t.name + '</div>' +
+            (t.description ? '<div class="table-desc">' + t.description + '</div>' : '') +
+            '<div class="table-url">' + BASE_URL + t.id + '</div>' +
+          '</div>' +
+          '<button class="del-btn" onclick="deleteTable(' + t.id + ')">삭제</button>' +
         '</div>' +
-        '<button class="del-btn" onclick="deleteTable(' + t.id + ')">삭제</button>' +
+        '<div class="qr-area">' +
+          '<div class="qr-wrap"><canvas id="qr-' + t.id + '"></canvas></div>' +
+          '<div class="qr-actions">' +
+            '<button class="qr-btn" onclick="downloadQR(' + t.id + ', \'' + t.name + '\')">⬇ 다운로드</button>' +
+            '<button class="qr-btn" onclick="copyUrl(' + t.id + ')">🔗 URL 복사</button>' +
+          '</div>' +
+        '</div>' +
       '</div>'
     ).join('')
+
+    // QR 코드 생성
+    data.forEach(t => {
+      QRCode.toCanvas(
+        document.getElementById('qr-' + t.id),
+        BASE_URL + t.id,
+        { width: 120, margin: 1, color: { dark: '#1a1a1a', light: '#ffffff' } }
+      )
+    })
+  }
+
+  // QR 다운로드
+  function downloadQR(id, name) {
+    const canvas = document.getElementById('qr-' + id)
+    const link = document.createElement('a')
+    link.download = 'QR_' + name + '.png'
+    link.href = canvas.toDataURL()
+    link.click()
+  }
+
+  // URL 복사
+  function copyUrl(id) {
+    navigator.clipboard.writeText(BASE_URL + id).then(() => {
+      const msg = document.getElementById('listMsg')
+      msg.textContent = 'URL 복사됨 ✓'
+      setTimeout(() => { msg.textContent = '' }, 2000)
+    })
   }
 
   async function addTable() {
@@ -151,13 +192,9 @@
 
   async function deleteTable(id) {
     if (!confirm('테이블을 삭제하시겠습니까?\n호출 내역도 함께 삭제됩니다.')) return
-
-    // qr_calls 먼저 삭제 (FK 제약)
     await db.from('qr_calls').delete().eq('table_id', id)
-
     const { error } = await db.from('qr_tables').delete().eq('id', id)
     const msg = document.getElementById('listMsg')
-
     if (error) { msg.textContent = '삭제 실패'; msg.className = 'msg-bar error' }
     else { msg.textContent = '삭제되었습니다 ✓'; msg.className = 'msg-bar'; loadTables() }
     setTimeout(() => { msg.textContent = '' }, 3000)
