@@ -1,0 +1,22 @@
+{
+  "name": "Qding 메트로놈",
+  "short_name": "메트로놈",
+  "description": "Qding 유틸리티 - 메트로놈",
+  "start_url": "/utils/metronome/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#00A876",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
