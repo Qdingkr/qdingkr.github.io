@@ -193,14 +193,31 @@
     }
   }
 
-  // ★ 브라우저 알림 표시
+  // ★ 브라우저 알림 + TTS
   function showNotification(message) {
+    // 브라우저 알림
     if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('🔔 새 호출', {
-        body: message,
-        icon: 'https://qdingkr.github.io/favicon.ico'
-      })
+      new Notification('🔔 새 호출', { body: message })
     }
+
+    // TTS
+    if ('speechSynthesis' in window) {
+      const text = '호출이 왔습니다. ' + message
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.lang = 'ko-KR'
+      utterance.rate = 0.9
+      utterance.volume = 1
+      speechSynthesis.speak(utterance)
+    }
+
+    // 탭 타이틀 깜빡임
+    let blink = 0
+    const original = document.title
+    const timer = setInterval(() => {
+      document.title = blink % 2 === 0 ? '🔔 새 호출!' : original
+      blink++
+      if (blink > 10) { clearInterval(timer); document.title = original }
+    }, 600)
   }
 
   // ★ Polling — 5초마다 새 호출 확인
