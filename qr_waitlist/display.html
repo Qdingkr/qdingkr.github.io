@@ -225,12 +225,37 @@
 </head>
 <body>
 
+<!-- TTS 활성화 오버레이 -->
+<div id="tts-overlay" style="
+  position:fixed; inset:0; background:rgba(0,0,0,0.5);
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  z-index:999; gap:16px;
+">
+  <div style="background:#fff; border-radius:16px; padding:40px 48px; text-align:center;">
+    <div style="font-size:3rem; margin-bottom:12px;">📺</div>
+    <div style="font-size:1.3rem; font-weight:800; color:#1a1a1a; margin-bottom:8px;">전광판 시작</div>
+    <div style="font-size:0.95rem; color:#666; margin-bottom:24px;">터치하면 TTS 안내가 활성화돼요</div>
+    <button onclick="activateTTS()" style="
+      background:#00b359; color:#fff; border:none;
+      border-radius:10px; padding:14px 40px;
+      font-size:1rem; font-weight:700; cursor:pointer;
+    ">시작하기</button>
+  </div>
+</div>
+
 <div class="header">
   <div>
     <div class="logo">Qding</div>
     <div class="store-label" id="store-label">-</div>
   </div>
-  <div class="open-badge badge-open" id="open-badge">영업중</div>
+  <div style="display:flex; align-items:center; gap:12px;">
+    <div id="tts-badge" style="
+      font-size:0.8rem; padding:4px 12px; border-radius:20px;
+      background:#ffeaea; color:#e53935; font-weight:600;
+    ">🔇 TTS 꺼짐</div>
+    <div class="open-badge badge-open" id="open-badge">영업중</div>
+  </div>
 </div>
 
 <div class="main" id="main-area">
@@ -401,12 +426,27 @@ function updateOpenBadge(isOpen) {
   badge.className = 'open-badge ' + (isOpen ? 'badge-open' : 'badge-closed');
 }
 
+let ttsEnabled = false;
+
+function activateTTS() {
+  ttsEnabled = true;
+  document.getElementById('tts-overlay').style.display = 'none';
+  document.getElementById('tts-badge').innerHTML = '🔊 TTS 켜짐';
+  document.getElementById('tts-badge').style.background = '#e6f7ef';
+  document.getElementById('tts-badge').style.color = '#00b359';
+
+  // 브라우저 TTS 언락용 빈 발화
+  const u = new SpeechSynthesisUtterance('');
+  speechSynthesis.speak(u);
+}
+
 function speak(text) {
-  if (!window.speechSynthesis) return;
+  if (!window.speechSynthesis || !ttsEnabled) return;
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang = 'ko-KR';
   u.rate = 0.9;
+  u.volume = 1.0;
   speechSynthesis.speak(u);
 }
 
