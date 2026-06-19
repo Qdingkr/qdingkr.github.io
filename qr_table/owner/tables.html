@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qding QR - 테이블 관리</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #1a1a1a; min-height: 100vh; padding: 2rem 1rem; }
+  .container { max-width: 640px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; }
+  .back-btn { color: #aaa; text-decoration: none; font-size: 0.85rem; transition: color 0.2s; }
+  .back-btn:hover { color: #00A876; }
+  .logo { font-size: 1.4rem; font-weight: 700; color: #1a1a1a; }
+  .logo span { color: #00A876; }
+  .page-title { font-size: 0.9rem; color: #aaa; margin-left: auto; }
+
+  .card { background: #fff; border: 1px solid #e8e8e8; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+  .card-title { font-size: 0.8rem; font-weight: 600; color: #00A876; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 1rem; }
+
+  .field { margin-bottom: 1rem; }
+  label { display: block; font-size: 0.75rem; font-weight: 600; color: #00A876; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.4rem; }
+  input, textarea { width: 100%; background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 8px; padding: 0.75rem 1rem; color: #1a1a1a; font-size: 0.9rem; font-family: inherit; outline: none; transition: border-color 0.2s; }
+  input:focus, textarea:focus { border-color: #00A876; background: #fff; }
+  input::placeholder, textarea::placeholder { color: #bbb; }
+  textarea { resize: none; height: 80px; line-height: 1.5; }
+
+  .btn-submit { width: 100%; background: #00A876; color: #fff; border: none; border-radius: 8px; padding: 0.85rem; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: background 0.2s, transform 0.1s; }
+  .btn-submit:hover { background: #009068; }
+  .btn-submit:active { transform: scale(0.98); }
+  .btn-submit:disabled { background: #ccc; cursor: not-allowed; }
+  .msg { font-size: 0.8rem; text-align: center; margin-top: 0.6rem; height: 1.2em; color: #00A876; }
+  .msg.error { color: #e05050; }
+
+  /* 테이블 목록 */
+  .table-item { display: flex; align-items: center; justify-content: space-between; padding: 1rem 0; border-bottom: 1px solid #f0f0f0; }
+  .table-item:last-child { border-bottom: none; }
+  .table-info { flex: 1; }
+  .table-name { font-size: 0.95rem; font-weight: 600; color: #1a1a1a; margin-bottom: 0.2rem; }
+  .table-desc { font-size: 0.75rem; color: #aaa; }
+  .table-url { font-size: 0.7rem; color: #00A876; margin-top: 0.2rem; word-break: break-all; }
+  .del-btn { background: none; border: 1px solid #e0e0e0; border-radius: 6px; color: #bbb; font-size: 0.75rem; padding: 0.3rem 0.6rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; margin-left: 1rem; }
+  .del-btn:hover { color: #e05050; border-color: #e05050; }
+
+  .empty { text-align: center; color: #bbb; font-size: 0.85rem; padding: 2rem 0; }
+  .loading { text-align: center; color: #bbb; font-size: 0.85rem; padding: 2rem 0; }
+  .section-title { font-size: 0.8rem; font-weight: 600; color: #aaa; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.75rem; }
+  .msg-bar { font-size: 0.8rem; color: #00A876; margin-bottom: 0.75rem; height: 1.2em; }
+  .msg-bar.error { color: #e05050; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <a class="back-btn" href="dashboard.html">← 대시보드</a>
+    <div class="logo">Q<span>ding</span></div>
+    <div class="page-title">테이블 관리</div>
+  </header>
+
+  <!-- 테이블 추가 -->
+  <div class="card">
+    <div class="card-title">테이블 추가</div>
+    <div class="field">
+      <label>테이블 이름</label>
+      <input type="text" id="nameInput" placeholder="테이블1, 창가자리, VIP..." maxlength="20" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>안내 메시지 <span style="color:#bbb;font-weight:400;text-transform:none;letter-spacing:0;">선택</span></label>
+      <textarea id="descInput" placeholder="손님에게 보여질 안내 문구를 입력하세요"></textarea>
+    </div>
+    <button class="btn-submit" id="addBtn" onclick="addTable()">추가하기</button>
+    <div class="msg" id="addMsg"></div>
+  </div>
+
+  <!-- 테이블 목록 -->
+  <div class="section-title">등록된 테이블</div>
+  <div class="msg-bar" id="listMsg"></div>
+  <div class="card">
+    <div id="tableList"><div class="loading">불러오는 중...</div></div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://knwaqyeznxvhkmvqigaf.supabase.co'
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtud2FxeWV6bnh2aGttdnFpZ2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NDUxODUsImV4cCI6MjA5NzMyMTE4NX0.7WZwkIXnMxzCDvAy8JCRUp5ybXwFDQJc7GHfHhfXF_M'
+  const { createClient } = supabase
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+  const BASE_URL = 'https://qdingkr.github.io/qr_table/?id='
+
+  async function checkSession() {
+    const { data: { session } } = await db.auth.getSession()
+    if (!session) { window.location.href = 'login.html'; return }
+  }
+
+  async function loadTables() {
+    const { data, error } = await db
+      .from('qr_tables')
+      .select('*')
+      .order('created_at', { ascending: true })
+
+    const el = document.getElementById('tableList')
+    if (error || !data || data.length === 0) {
+      el.innerHTML = '<div class="empty">등록된 테이블이 없습니다</div>'
+      return
+    }
+
+    el.innerHTML = data.map(t =>
+      '<div class="table-item">' +
+        '<div class="table-info">' +
+          '<div class="table-name">' + t.name + '</div>' +
+          (t.description ? '<div class="table-desc">' + t.description + '</div>' : '') +
+          '<div class="table-url">' + BASE_URL + t.id + '</div>' +
+        '</div>' +
+        '<button class="del-btn" onclick="deleteTable(' + t.id + ')">삭제</button>' +
+      '</div>'
+    ).join('')
+  }
+
+  async function addTable() {
+    const name = document.getElementById('nameInput').value.trim()
+    const description = document.getElementById('descInput').value.trim()
+    const btn = document.getElementById('addBtn')
+    const msg = document.getElementById('addMsg')
+
+    if (!name) { msg.textContent = '테이블 이름을 입력해주세요'; msg.className = 'msg error'; return }
+
+    btn.disabled = true
+    btn.textContent = '추가 중...'
+
+    const { data: { session } } = await db.auth.getSession()
+
+    const { error } = await db
+      .from('qr_tables')
+      .insert({ name, description: description || null, owner_id: session.user.id })
+
+    if (error) {
+      msg.textContent = '추가 실패'; msg.className = 'msg error'
+    } else {
+      document.getElementById('nameInput').value = ''
+      document.getElementById('descInput').value = ''
+      msg.textContent = '추가되었습니다 ✓'; msg.className = 'msg'
+      loadTables()
+    }
+
+    btn.disabled = false
+    btn.textContent = '추가하기'
+    setTimeout(() => { msg.textContent = '' }, 3000)
+  }
+
+  async function deleteTable(id) {
+    if (!confirm('테이블을 삭제하시겠습니까?\n호출 내역도 함께 삭제됩니다.')) return
+
+    // qr_calls 먼저 삭제 (FK 제약)
+    await db.from('qr_calls').delete().eq('table_id', id)
+
+    const { error } = await db.from('qr_tables').delete().eq('id', id)
+    const msg = document.getElementById('listMsg')
+
+    if (error) { msg.textContent = '삭제 실패'; msg.className = 'msg-bar error' }
+    else { msg.textContent = '삭제되었습니다 ✓'; msg.className = 'msg-bar'; loadTables() }
+    setTimeout(() => { msg.textContent = '' }, 3000)
+  }
+
+  checkSession()
+  loadTables()
+</script>
+</body>
+</html>
