@@ -186,8 +186,45 @@
     window.location.href = 'login.html'
   }
 
+  // ★ 브라우저 알림 권한 요청
+  async function requestNotificationPermission() {
+    if ('Notification' in window && Notification.permission === 'default') {
+      await Notification.requestPermission()
+    }
+  }
+
+  // ★ 브라우저 알림 표시
+  function showNotification(message) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('🔔 새 호출', {
+        body: message,
+        icon: 'https://qdingkr.github.io/favicon.ico'
+      })
+    }
+  }
+
+  // ★ Realtime 구독
+  function subscribeRealtime() {
+    db.channel('qr_calls_changes')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'qr_calls'
+      }, (payload) => {
+        // 내 테이블 호출인지 확인
+        if (payload.new.table_id === selectedTableId) {
+          loadCalls(selectedTableId)
+        }
+        loadTables()
+        showNotification(payload.new.message)
+      })
+      .subscribe()
+  }
+
   checkSession()
   loadTables()
+  requestNotificationPermission()
+  subscribeRealtime()
 </script>
 </body>
 </html>
