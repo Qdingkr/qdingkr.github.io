@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qding 대기 관리</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --surface: #1a1a1a;
+    --border: #2a2a2a;
+    --accent: #00FF7F;
+    --accent-dim: #00cc63;
+    --danger: #ff4444;
+    --warn: #ffaa00;
+    --text: #f0f0f0;
+    --text-dim: #888;
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* LOGIN */
+  #login-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    gap: 16px;
+    padding: 24px;
+  }
+
+  .logo {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--accent);
+    letter-spacing: -1px;
+    margin-bottom: 8px;
+  }
+
+  .login-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+    width: 100%;
+    max-width: 360px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .login-box h2 {
+    font-size: 1.1rem;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-size: 1rem;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input:focus { border-color: var(--accent); }
+
+  .btn {
+    padding: 12px 20px;
+    border-radius: 8px;
+    border: none;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-dim); }
+
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-warn { background: var(--warn); color: #000; }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  .error-msg {
+    color: var(--danger);
+    font-size: 0.85rem;
+    text-align: center;
+  }
+
+  /* DASHBOARD */
+  #dashboard { display: none; }
+
+  .topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .topbar .logo { font-size: 1.3rem; margin: 0; }
+
+  .store-name {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* 영업 토글 */
+  .toggle-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .toggle-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .toggle {
+    position: relative;
+    width: 48px;
+    height: 26px;
+  }
+
+  .toggle input { opacity: 0; width: 0; height: 0; }
+
+  .toggle-slider {
+    position: absolute;
+    inset: 0;
+    background: var(--border);
+    border-radius: 26px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .toggle-slider:before {
+    content: '';
+    position: absolute;
+    width: 20px; height: 20px;
+    left: 3px; top: 3px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.2s;
+  }
+
+  .toggle input:checked + .toggle-slider { background: var(--accent); }
+  .toggle input:checked + .toggle-slider:before { transform: translateX(22px); }
+
+  /* MAIN */
+  .main {
+    padding: 20px;
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    text-align: center;
+  }
+
+  .stat-num {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .section-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* 대기 목록 */
+  .waitlist {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .wait-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .wait-card.called {
+    border-color: var(--warn);
+  }
+
+  .wait-num {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--accent);
+    min-width: 48px;
+    text-align: center;
+    line-height: 1;
+  }
+
+  .wait-num.called { color: var(--warn); }
+
+  .wait-info {
+    flex: 1;
+  }
+
+  .wait-status {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    display: inline-block;
+    margin-bottom: 4px;
+  }
+
+  .status-waiting { background: #1a3a2a; color: var(--accent); }
+  .status-called { background: #3a2a00; color: var(--warn); }
+
+  .wait-memo {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+  }
+
+  .wait-time {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  .wait-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .wait-actions .btn {
+    padding: 8px 14px;
+    font-size: 0.82rem;
+    white-space: nowrap;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--text-dim);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 8px; }
+
+  /* QR 섹션 */
+  .qr-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  #qrcode {
+    display: inline-block;
+    background: #fff;
+    padding: 12px;
+    border-radius: 8px;
+    margin: 12px 0;
+  }
+
+  .qr-url {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    word-break: break-all;
+    margin-bottom: 12px;
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  /* 하단 액션 */
+  .bottom-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .polling-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2s infinite;
+    display: inline-block;
+    margin-right: 6px;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .closed-banner {
+    background: #2a0000;
+    border: 1px solid var(--danger);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    text-align: center;
+    color: var(--danger);
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- 로그인 화면 -->
+<div id="login-screen">
+  <div class="logo">Qding</div>
+  <div class="login-box">
+    <h2>대기 관리 로그인</h2>
+    <input type="email" id="email" placeholder="이메일" autocomplete="email">
+    <input type="password" id="password" placeholder="비밀번호" autocomplete="current-password">
+    <button class="btn btn-primary" onclick="login()">로그인</button>
+    <div class="error-msg" id="login-error"></div>
+  </div>
+</div>
+
+<!-- 대시보드 -->
+<div id="dashboard">
+  <div class="topbar">
+    <div>
+      <div class="logo">Qding</div>
+      <div class="store-name" id="store-name-label">-</div>
+    </div>
+    <div class="topbar-right">
+      <div class="toggle-wrap">
+        <span class="toggle-label" id="open-label" style="color: var(--text-dim)">영업종료</span>
+        <label class="toggle">
+          <input type="checkbox" id="open-toggle" onchange="toggleOpen()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <button class="btn btn-ghost" onclick="logout()" style="padding:8px 12px;font-size:0.8rem;">로그아웃</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="closed-banner" id="closed-banner">🚫 영업 종료 상태 — 손님 QR 진입 시 안내 표시됨</div>
+
+    <!-- 통계 -->
+    <div class="stat-row">
+      <div class="stat-card">
+        <div class="stat-num" id="stat-waiting">0</div>
+        <div class="stat-label">대기중</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="stat-called" style="color:var(--warn)">0</div>
+        <div class="stat-label">호출됨</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="stat-done" style="color:var(--text-dim)">0</div>
+        <div class="stat-label">완료</div>
+      </div>
+    </div>
+
+    <!-- 대기 목록 -->
+    <div class="section-header">
+      <span class="section-title"><span class="polling-dot"></span>대기 목록</span>
+      <button class="btn btn-ghost" onclick="resetNumbers()" style="padding:6px 12px;font-size:0.8rem;">번호 리셋</button>
+    </div>
+
+    <div class="waitlist" id="waitlist">
+      <div class="empty-state">
+        <div class="empty-icon">🎫</div>
+        <div>대기 손님이 없어요</div>
+      </div>
+    </div>
+
+    <!-- QR 코드 -->
+    <div class="section-header">
+      <span class="section-title">손님용 QR</span>
+    </div>
+    <div class="qr-section">
+      <div>손님이 스캔하면 번호표를 뽑을 수 있어요</div>
+      <div id="qrcode"></div>
+      <div class="qr-url" id="qr-url-text"></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="downloadQR()">QR 다운로드</button>
+        <button class="btn btn-ghost" onclick="copyURL()">링크 복사</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://knwaqyeznxvhkmvqigaf.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtud2FxeWV6bnh2aGttdnFpZ2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NDUxODUsImV4cCI6MjA5NzMyMTE4NX0.7WZwkIXnMxzCDvAy8JCRUp5ybXwFDQJc7GHfHhfXF_M';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let ownerId = null;
+let storeName = null;
+let pollTimer = null;
+
+// 로그인
+async function login() {
+  const email = document.getElementById('email').value.trim();
+  const pw = document.getElementById('password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+
+  const { data, error } = await db.auth.signInWithPassword({ email, password: pw });
+  if (error) { errEl.textContent = '이메일 또는 비밀번호를 확인해주세요.'; return; }
+
+  await initDashboard(data.user);
+}
+
+async function initDashboard(user) {
+  // qr_owers에서 owner 정보 가져오기
+  const { data: owner } = await db
+    .from('qr_owers')
+    .select('*')
+    .eq('id', user.id)
+    .single();
+
+  if (!owner) {
+    document.getElementById('login-error').textContent = '등록된 가게 정보가 없습니다.';
+    return;
+  }
+
+  ownerId = owner.id;
+  storeName = owner.store_name;
+
+  document.getElementById('store-name-label').textContent = storeName;
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+
+  // 영업 상태 반영
+  const tog = document.getElementById('open-toggle');
+  tog.checked = owner.is_open;
+  updateOpenLabel(owner.is_open);
+
+  // QR 생성
+  const waitURL = `${location.origin}/wait.html?owner=${ownerId}`;
+  document.getElementById('qr-url-text').textContent = waitURL;
+  new QRCode(document.getElementById('qrcode'), {
+    text: waitURL,
+    width: 160, height: 160,
+    colorDark: '#000', colorLight: '#fff'
+  });
+
+  // 폴링 시작
+  fetchWaitlist();
+  pollTimer = setInterval(fetchWaitlist, 5000);
+}
+
+// 로그아웃
+async function logout() {
+  clearInterval(pollTimer);
+  await db.auth.signOut();
+  location.reload();
+}
+
+// 영업 토글
+async function toggleOpen() {
+  const isOpen = document.getElementById('open-toggle').checked;
+  await db.from('qr_owers').update({ is_open: isOpen }).eq('id', ownerId);
+  updateOpenLabel(isOpen);
+}
+
+function updateOpenLabel(isOpen) {
+  const label = document.getElementById('open-label');
+  const banner = document.getElementById('closed-banner');
+  if (isOpen) {
+    label.textContent = '영업중';
+    label.style.color = 'var(--accent)';
+    banner.style.display = 'none';
+  } else {
+    label.textContent = '영업종료';
+    label.style.color = 'var(--text-dim)';
+    banner.style.display = 'block';
+  }
+}
+
+// 대기 목록 폴링
+async function fetchWaitlist() {
+  const { data } = await db
+    .from('qr_waitlist')
+    .select('*')
+    .eq('owner_id', ownerId)
+    .in('status', ['waiting', 'called'])
+    .order('number', { ascending: true });
+
+  // 완료 카운트
+  const { count: doneCount } = await db
+    .from('qr_waitlist')
+    .select('*', { count: 'exact', head: true })
+    .eq('owner_id', ownerId)
+    .eq('status', 'done');
+
+  renderWaitlist(data || []);
+  updateStats(data || [], doneCount || 0);
+}
+
+function updateStats(list, doneCount) {
+  document.getElementById('stat-waiting').textContent = list.filter(i => i.status === 'waiting').length;
+  document.getElementById('stat-called').textContent = list.filter(i => i.status === 'called').length;
+  document.getElementById('stat-done').textContent = doneCount;
+}
+
+function renderWaitlist(list) {
+  const el = document.getElementById('waitlist');
+  if (list.length === 0) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">🎫</div><div>대기 손님이 없어요</div></div>`;
+    return;
+  }
+
+  el.innerHTML = list.map(item => {
+    const isCalled = item.status === 'called';
+    const timeAgo = timeSince(item.created_at);
+
+    const actionBtns = isCalled
+      ? `<button class="btn btn-warn" onclick="callAgain('${item.id}')">재호출</button>
+         <button class="btn btn-primary" onclick="markDone('${item.id}')">완료</button>
+         <button class="btn btn-danger" onclick="deleteItem('${item.id}')">삭제</button>`
+      : `<button class="btn btn-primary" onclick="callNext('${item.id}')">호출</button>
+         <button class="btn btn-danger" onclick="deleteItem('${item.id}')">삭제</button>`;
+
+    return `
+      <div class="wait-card ${isCalled ? 'called' : ''}">
+        <div class="wait-num ${isCalled ? 'called' : ''}">${item.number}</div>
+        <div class="wait-info">
+          <span class="wait-status ${isCalled ? 'status-called' : 'status-waiting'}">
+            ${isCalled ? '호출됨' : '대기중'}
+          </span>
+          ${item.memo ? `<div class="wait-memo">💬 ${item.memo}</div>` : ''}
+          <div class="wait-time">${timeAgo} 전 등록</div>
+        </div>
+        <div class="wait-actions">${actionBtns}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// 호출
+async function callNext(id) {
+  await db.from('qr_waitlist').update({
+    status: 'called',
+    called_at: new Date().toISOString()
+  }).eq('id', id);
+  fetchWaitlist();
+}
+
+// 재호출
+async function callAgain(id) {
+  await db.from('qr_waitlist').update({
+    called_at: new Date().toISOString()
+  }).eq('id', id);
+  fetchWaitlist();
+}
+
+// 완료
+async function markDone(id) {
+  await db.from('qr_waitlist').update({
+    status: 'done',
+    done_at: new Date().toISOString()
+  }).eq('id', id);
+  fetchWaitlist();
+}
+
+// 삭제
+async function deleteItem(id) {
+  await db.from('qr_waitlist').delete().eq('id', id);
+  fetchWaitlist();
+}
+
+// 번호 리셋
+async function resetNumbers() {
+  if (!confirm('오늘 대기 목록을 모두 초기화할까요?')) return;
+  await db.from('qr_waitlist')
+    .delete()
+    .eq('owner_id', ownerId);
+  fetchWaitlist();
+}
+
+// QR 다운로드
+function downloadQR() {
+  const canvas = document.querySelector('#qrcode canvas');
+  if (!canvas) return;
+  const a = document.createElement('a');
+  a.download = `qding-wait-${storeName}.png`;
+  a.href = canvas.toDataURL();
+  a.click();
+}
+
+// 링크 복사
+function copyURL() {
+  const url = document.getElementById('qr-url-text').textContent;
+  navigator.clipboard.writeText(url);
+  alert('링크가 복사됐어요 👍');
+}
+
+// 시간 포맷
+function timeSince(dateStr) {
+  const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
+  if (diff < 60) return `${diff}초`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}분`;
+  return `${Math.floor(diff / 3600)}시간`;
+}
+
+// 자동 로그인 체크
+db.auth.getSession().then(({ data: { session } }) => {
+  if (session) initDashboard(session.user);
+});
+</script>
+</body>
+</html>
