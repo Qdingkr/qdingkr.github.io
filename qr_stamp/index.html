@@ -693,7 +693,7 @@ async function loadCards() {
         </div>
         <div class="card-actions">
           <button class="btn btn-ghost btn-sm" onclick="showCardQR('${c.id}')">QR</button>
-          <button class="btn btn-ghost btn-sm" onclick="openStampPanel('${c.id}', ${goal})">관리</button>
+          <button class="btn btn-ghost btn-sm" onclick="location.href='./stamp.html?id=${c.id}'">관리</button>
         </div>
       </div>
     `;
@@ -790,20 +790,7 @@ document.getElementById('btn-stamp-use').addEventListener('click', async () => {
   await refreshPanel();
 });
 
-// ── QR 스캔 후 진입 (?scan=card_id) ─────────────
-const params = new URLSearchParams(location.search);
-const scanId = params.get('scan');
-if (scanId) {
-  db.auth.getSession().then(async ({ data }) => {
-    if (!data.session) return;
-    const { data: card } = await db
-      .from('stamp_cards')
-      .select('*, stamp_templates(stamp_goal)')
-      .eq('id', scanId)
-      .single();
-    if (card) openStampPanel(card.id, card.stamp_templates?.stamp_goal || 10);
-  });
-}
+// QR 스캔 → stamp.html?id={card_id} 로 직접 이동
 </script>
 </body>
 </html>
