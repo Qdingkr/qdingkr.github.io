@@ -507,7 +507,7 @@ function showLogin() {
 }
 
 async function initDashboard(uid) {
-  const { data: owner } = await sb.from('qr_owners').select('*').eq('id', uid).single();
+  const { data: owner } = await sb.from('qr_owers').select('*').eq('id', uid).single();
   if (!owner) { showLogin(); return; }
   currentOwner = owner;
   document.getElementById('screen-login').style.display = 'none';
