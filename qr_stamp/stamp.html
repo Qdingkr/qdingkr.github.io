@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Qding 스탬프 찍기</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #f5f5f5;
+      --surface: #ffffff;
+      --border: #e0e0e0;
+      --accent: #00b359;
+      --accent-dim: #009948;
+      --danger: #e53935;
+      --warn: #f57c00;
+      --text: #1a1a1a;
+      --text-dim: #666;
+      --radius: 10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── 상단바 ── */
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .logo {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--accent);
+      letter-spacing: -1px;
+    }
+    .store-name { font-size: 0.85rem; color: var(--text-dim); margin-top: 2px; }
+    .btn-back {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 14px;
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .btn-back:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── 메인 ── */
+    .main {
+      padding: 24px 20px;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    /* ── 카드 정보 ── */
+    .card-info-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .card-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+    .card-reward-text {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .card-id-text {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      font-family: monospace;
+      margin-top: 6px;
+    }
+
+    /* ── 스탬프 카운터 ── */
+    .counter-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 20px;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .count-num {
+      font-size: 5rem;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1;
+    }
+    .count-goal {
+      font-size: 1rem;
+      color: var(--text-dim);
+      margin-top: 6px;
+    }
+
+    /* ── 도트 ── */
+    .dots-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .stamp-dots {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+    .dot {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: transparent;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+    .dot.filled {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    .dot.filled::after { content: '✓'; color: #fff; font-size: 14px; }
+
+    /* ── 버튼 ── */
+    .btn {
+      padding: 16px 20px;
+      border-radius: var(--radius);
+      border: none;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      font-family: inherit;
+      width: 100%;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-dim); }
+    .btn-danger  { background: var(--danger); color: #fff; }
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+    }
+
+    .action-btns {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    /* ── 이력 ── */
+    .history-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+    }
+    .section-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+    }
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.875rem;
+    }
+    .history-item:last-child { border-bottom: none; }
+    .delta-pos { color: var(--accent); font-weight: 700; }
+    .delta-neg { color: var(--danger); font-weight: 700; }
+    .ts { color: var(--text-dim); font-size: 0.78rem; }
+
+    /* ── 에러/로딩 ── */
+    .center-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 60vh;
+      gap: 12px;
+      color: var(--text-dim);
+      text-align: center;
+      padding: 24px;
+    }
+    .center-screen .ei { font-size: 3rem; }
+
+    .empty-state {
+      text-align: center;
+      padding: 20px;
+      color: var(--text-dim);
+      font-size: 0.85rem;
+    }
+
+    /* ── 토스트 ── */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      z-index: 999;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; }
+
+    /* ── 비로그인 안내 ── */
+    #screen-noauth { display: none; }
+    #screen-main   { display: none; }
+    #screen-nocard { display: none; }
+  </style>
+</head>
+<body>
+
+<!-- 상단바 -->
+<div class="topbar">
+  <div>
+    <div class="logo">Qding</div>
+    <div class="store-name" id="header-store"></div>
+  </div>
+  <button class="btn-back" onclick="location.href='./index.html'">← 목록</button>
+</div>
+
+<!-- 비로그인 -->
+<div id="screen-noauth" class="center-screen">
+  <div class="ei">🔒</div>
+  <div>오너 로그인이 필요합니다</div>
+  <button class="btn btn-primary" style="width:auto; padding:12px 28px;" onclick="location.href='./index.html'">로그인하러 가기</button>
+</div>
+
+<!-- 카드 없음 -->
+<div id="screen-nocard" class="center-screen">
+  <div class="ei">❌</div>
+  <div>카드를 찾을 수 없습니다</div>
+  <button class="btn btn-ghost" style="width:auto; padding:10px 24px;" onclick="location.href='./index.html'">← 돌아가기</button>
+</div>
+
+<!-- 메인 -->
+<div id="screen-main">
+  <div class="main">
+
+    <!-- 카드 정보 -->
+    <div class="card-info-box">
+      <div class="card-label">리워드</div>
+      <div class="card-reward-text" id="card-reward">-</div>
+      <div class="card-id-text" id="card-id-text"></div>
+    </div>
+
+    <!-- 카운터 -->
+    <div class="counter-box">
+      <div class="count-num" id="count-num">0</div>
+      <div class="count-goal" id="count-goal">/ 10 개</div>
+    </div>
+
+    <!-- 도트 -->
+    <div class="dots-box">
+      <div class="stamp-dots" id="stamp-dots"></div>
+    </div>
+
+    <!-- 액션 버튼 -->
+    <div class="action-btns">
+      <button class="btn btn-primary" id="btn-add">＋ 스탬프 찍기</button>
+      <button class="btn btn-danger"  id="btn-use">리워드 사용 (-<span id="use-goal">10</span>개)</button>
+    </div>
+
+    <!-- 이력 -->
+    <div class="history-box">
+      <div class="section-title">적립 이력</div>
+      <div id="history-list"><div class="empty-state">이력 없음</div></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://knwaqyeznxvhkmvqigaf.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtud2FxeWV6bnh2aGttdnFpZ2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NDUxODUsImV4cCI6MjA5NzMyMTE4NX0.7WZwkIXnMxzCDvAy8JCRUp5ybXwFDQJc7GHfHhfXF_M';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const params  = new URLSearchParams(location.search);
+const cardId  = params.get('id');
+
+let currentOwner = null;
+let currentGoal  = 10;
+let currentCount = 0;
+
+// ── 유틸 ──────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function fmtDate(ts) {
+  const d = new Date(ts);
+  return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function show(id) {
+  ['screen-noauth','screen-nocard','screen-main'].forEach(s => {
+    document.getElementById(s).style.display = s === id ? 'block' : 'none';
+  });
+}
+
+// ── 초기화 ───────────────────────────────────────
+async function init() {
+  const { data: { session } } = await db.auth.getSession();
+
+  if (!session) { show('screen-noauth'); return; }
+
+  // 오너 정보
+  const { data: owner } = await db
+    .from('qr_owers')
+    .select('*')
+    .eq('id', session.user.id)
+    .single();
+
+  if (!owner) { show('screen-noauth'); return; }
+  currentOwner = owner;
+  document.getElementById('header-store').textContent = owner.store_name;
+
+  // 카드 정보
+  if (!cardId) { show('screen-nocard'); return; }
+
+  const { data: card } = await db
+    .from('stamp_cards')
+    .select('*, stamp_templates(reward, stamp_goal)')
+    .eq('id', cardId)
+    .eq('owner_id', owner.id)   // 본인 가게 카드만
+    .single();
+
+  if (!card) { show('screen-nocard'); return; }
+
+  currentGoal = card.stamp_templates?.stamp_goal || 10;
+  document.getElementById('card-reward').textContent = card.stamp_templates?.reward || '-';
+  document.getElementById('card-id-text').textContent = 'ID: ' + card.id;
+  document.getElementById('use-goal').textContent = currentGoal;
+
+  show('screen-main');
+  await refresh();
+}
+
+// ── 새로고침 ─────────────────────────────────────
+async function refresh() {
+  const { data: events } = await db
+    .from('stamp_events')
+    .select('*')
+    .eq('card_id', cardId)
+    .order('stamped_at', { ascending: false });
+
+  currentCount = (events || []).reduce((s, e) => s + e.delta, 0);
+
+  document.getElementById('count-num').textContent  = currentCount;
+  document.getElementById('count-goal').textContent = `/ ${currentGoal} 개`;
+
+  // 도트
+  const dots = document.getElementById('stamp-dots');
+  dots.innerHTML = Array.from({ length: currentGoal }, (_, i) =>
+    `<div class="dot ${i < currentCount ? 'filled' : ''}"></div>`
+  ).join('');
+
+  // 이력
+  const hist = document.getElementById('history-list');
+  if (!events || events.length === 0) {
+    hist.innerHTML = '<div class="empty-state">이력 없음</div>';
+    return;
+  }
+  hist.innerHTML = events.map(e => `
+    <div class="history-item">
+      <span class="${e.delta > 0 ? 'delta-pos' : 'delta-neg'}">
+        ${e.delta > 0 ? '+' : ''}${e.delta} &nbsp;${e.note || ''}
+      </span>
+      <span class="ts">${fmtDate(e.stamped_at)}</span>
+    </div>
+  `).join('');
+}
+
+// ── 스탬프 찍기 ──────────────────────────────────
+document.getElementById('btn-add').addEventListener('click', async () => {
+  const { error } = await db.from('stamp_events').insert({
+    card_id:  cardId,
+    owner_id: currentOwner.id,
+    delta:    1,
+    note:     '스탬프 적립'
+  });
+  if (error) return showToast('오류: ' + error.message);
+  showToast('스탬프 +1 ✓');
+  await refresh();
+});
+
+// ── 리워드 사용 ──────────────────────────────────
+document.getElementById('btn-use').addEventListener('click', async () => {
+  if (currentCount < currentGoal)
+    return showToast(`스탬프가 부족합니다 (${currentCount}/${currentGoal})`);
+  if (!confirm(`리워드를 사용할까요? (-${currentGoal}개)`)) return;
+
+  const { error } = await db.from('stamp_events').insert({
+    card_id:  cardId,
+    owner_id: currentOwner.id,
+    delta:    -currentGoal,
+    note:     '리워드 사용'
+  });
+  if (error) return showToast('오류: ' + error.message);
+  showToast('리워드 사용 완료! 🎉');
+  await refresh();
+});
+
+init();
+</script>
+</body>
+</html>
