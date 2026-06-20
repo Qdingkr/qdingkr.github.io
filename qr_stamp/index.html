@@ -429,6 +429,19 @@
   </div>
 </div>
 
+<!-- QR 보기 모달 -->
+<div id="modal-qr" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:100; align-items:center; justify-content:center; padding:24px;">
+  <div class="modal-inner" style="text-align:center;">
+    <h3 style="margin-bottom:16px;">카드 QR 코드</h3>
+    <img id="modal-qr-img" src="" width="200" height="200" style="border-radius:8px; border:1px solid var(--border);" />
+    <div id="modal-qr-url" style="font-size:0.72rem; color:var(--accent); word-break:break-all; margin-top:10px; font-family:monospace;"></div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" id="btn-qr-close">닫기</button>
+      <button class="btn btn-primary" id="btn-qr-copy">링크 복사</button>
+    </div>
+  </div>
+</div>
+
 <!-- 스탬프 관리 패널 -->
 <div id="panel-stamp">
   <div class="panel-inner">
@@ -679,6 +692,7 @@ async function loadCards() {
           <div class="card-reward">${reward}</div>
         </div>
         <div class="card-actions">
+          <button class="btn btn-ghost btn-sm" onclick="showCardQR('${c.id}')">QR</button>
           <button class="btn btn-ghost btn-sm" onclick="openStampPanel('${c.id}', ${goal})">관리</button>
         </div>
       </div>
