@@ -1,1 +1,742 @@
 
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Qding 스탬프 관리</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0d0d;
+      --surface: #1a1a1a;
+      --border: #2a2a2a;
+      --accent: #00e5a0;
+      --accent-dim: #00e5a022;
+      --text: #f0f0f0;
+      --text-muted: #666;
+      --danger: #ff4d4d;
+      --radius: 12px;
+      --font: 'Segoe UI', system-ui, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+    }
+
+    /* ── 헤더 ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 10;
+    }
+    .logo { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+    .logo span { color: var(--accent); }
+    .store-name { font-size: 13px; color: var(--text-muted); }
+    #btn-logout {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    #btn-logout:hover { border-color: var(--danger); color: var(--danger); }
+
+    /* ── 로그인 화면 ── */
+    #screen-login {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 80vh;
+      gap: 16px;
+      padding: 24px;
+    }
+    #screen-login h2 { font-size: 24px; }
+    #screen-login p { color: var(--text-muted); font-size: 14px; }
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+      max-width: 360px;
+    }
+    input[type="email"], input[type="password"], input[type="text"], input[type="number"], textarea {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 14px;
+      border-radius: var(--radius);
+      font-size: 15px;
+      width: 100%;
+      outline: none;
+      transition: border 0.2s;
+    }
+    input:focus, textarea:focus { border-color: var(--accent); }
+
+    /* ── 버튼 ── */
+    .btn {
+      padding: 12px 20px;
+      border-radius: var(--radius);
+      border: none;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: var(--accent); color: #000; width: 100%; }
+    .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-sm { padding: 7px 14px; font-size: 13px; }
+
+    /* ── 대시보드 ── */
+    #screen-dashboard { display: none; padding: 24px; max-width: 720px; margin: 0 auto; }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+
+    /* ── 카드 ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    /* ── 템플릿 섹션 ── */
+    .template-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+    .template-row input { flex: 1; min-width: 120px; }
+    .template-row .btn { white-space: nowrap; }
+
+    /* ── 템플릿 목록 ── */
+    .template-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+    .template-item:last-child { border-bottom: none; }
+    .template-info { flex: 1; }
+    .template-info .reward { font-size: 15px; font-weight: 600; }
+    .template-info .goal { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ── 카드 목록 ── */
+    .stamp-card-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+    .stamp-card-item:last-child { border-bottom: none; }
+    .card-info { flex: 1; }
+    .card-info .card-id { font-size: 12px; color: var(--text-muted); font-family: monospace; }
+    .card-info .card-stamp {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-top: 4px;
+    }
+    .card-info .card-reward { font-size: 12px; color: var(--text-muted); }
+    .card-actions { display: flex; gap: 8px; }
+
+    /* ── 스탬프 관리 패널 ── */
+    #panel-stamp {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #000a;
+      z-index: 100;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    #panel-stamp.open { display: flex; }
+    .panel-inner {
+      background: var(--surface);
+      border-radius: 20px 20px 0 0;
+      padding: 28px 24px 40px;
+      width: 100%;
+      max-width: 480px;
+    }
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .panel-header h3 { font-size: 18px; }
+    .panel-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 22px;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .stamp-counter {
+      text-align: center;
+      margin: 20px 0;
+    }
+    .stamp-counter .count {
+      font-size: 64px;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1;
+    }
+    .stamp-counter .goal-text {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    .stamp-dots {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin: 16px 0 24px;
+    }
+    .dot {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: transparent;
+      transition: all 0.2s;
+    }
+    .dot.filled { background: var(--accent); border-color: var(--accent); }
+
+    .stamp-btns {
+      display: flex;
+      gap: 12px;
+    }
+    .stamp-btns .btn { flex: 1; }
+
+    .history-list { margin-top: 20px; }
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .history-item:last-child { border-bottom: none; }
+    .history-item .delta-pos { color: var(--accent); }
+    .history-item .delta-neg { color: var(--danger); }
+    .history-item .ts { color: var(--text-muted); }
+
+    /* ── 발급 모달 ── */
+    #modal-issue {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #000a;
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    #modal-issue.open { display: flex; }
+    .modal-inner {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      width: 100%;
+      max-width: 400px;
+    }
+    .modal-inner h3 { margin-bottom: 16px; font-size: 18px; }
+    .modal-inner select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 14px;
+      border-radius: var(--radius);
+      font-size: 15px;
+      width: 100%;
+      margin-bottom: 12px;
+    }
+    .modal-btns { display: flex; gap: 10px; margin-top: 16px; }
+    .modal-btns .btn { flex: 1; }
+
+    /* ── QR 결과 ── */
+    #qr-result {
+      text-align: center;
+      padding: 20px 0 0;
+    }
+    #qr-result p { font-size: 13px; color: var(--text-muted); margin-top: 10px; }
+    #qr-result .qr-url {
+      font-size: 11px;
+      color: var(--accent);
+      word-break: break-all;
+      margin-top: 6px;
+      font-family: monospace;
+    }
+
+    /* ── 탭 ── */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 20px;
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 4px;
+    }
+    .tab {
+      flex: 1;
+      padding: 9px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 9px;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.2s;
+    }
+    .tab.active { background: var(--accent); color: #000; }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .empty { color: var(--text-muted); font-size: 14px; text-align: center; padding: 24px 0; }
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent);
+      color: #000;
+      padding: 10px 20px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 14px;
+      z-index: 999;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">Q<span>ding</span> 스탬프</div>
+    <div class="store-name" id="header-store"></div>
+  </div>
+  <button id="btn-logout">로그아웃</button>
+</header>
+
+<!-- 로그인 화면 -->
+<div id="screen-login">
+  <h2>오너 로그인</h2>
+  <p>스탬프 카드 관리 페이지입니다</p>
+  <div class="input-group">
+    <input type="email" id="login-email" placeholder="이메일" />
+    <input type="password" id="login-pw" placeholder="비밀번호" />
+    <button class="btn btn-primary" id="btn-login">로그인</button>
+  </div>
+</div>
+
+<!-- 대시보드 -->
+<div id="screen-dashboard">
+  <div class="tabs">
+    <div class="tab active" data-tab="cards">발급 카드</div>
+    <div class="tab" data-tab="templates">템플릿</div>
+  </div>
+
+  <!-- 탭: 발급 카드 -->
+  <div class="tab-content active" id="tab-cards">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <div class="section-title" style="margin:0">발급된 카드</div>
+      <button class="btn btn-primary btn-sm" id="btn-open-issue">+ 카드 발급</button>
+    </div>
+    <div class="card" id="cards-list">
+      <div class="empty">발급된 카드가 없습니다</div>
+    </div>
+  </div>
+
+  <!-- 탭: 템플릿 -->
+  <div class="tab-content" id="tab-templates">
+    <div class="section-title">새 템플릿</div>
+    <div class="card">
+      <div class="template-row">
+        <input type="text" id="tmpl-reward" placeholder="리워드 (예: 아메리카노 1잔)" />
+        <input type="number" id="tmpl-goal" placeholder="목표 수" value="10" style="max-width:100px;" />
+        <button class="btn btn-primary btn-sm" id="btn-add-template">추가</button>
+      </div>
+    </div>
+    <div class="section-title">템플릿 목록</div>
+    <div class="card" id="templates-list">
+      <div class="empty">템플릿이 없습니다</div>
+    </div>
+  </div>
+</div>
+
+<!-- 카드 발급 모달 -->
+<div id="modal-issue">
+  <div class="modal-inner">
+    <h3>카드 발급</h3>
+    <select id="issue-template">
+      <option value="">템플릿 선택</option>
+    </select>
+    <div id="qr-result" style="display:none;"></div>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" id="btn-modal-cancel">닫기</button>
+      <button class="btn btn-primary" id="btn-issue-confirm">발급</button>
+    </div>
+  </div>
+</div>
+
+<!-- 스탬프 관리 패널 -->
+<div id="panel-stamp">
+  <div class="panel-inner">
+    <div class="panel-header">
+      <h3>스탬프 관리</h3>
+      <button class="panel-close" id="btn-panel-close">✕</button>
+    </div>
+    <div class="stamp-counter">
+      <div class="count" id="panel-count">0</div>
+      <div class="goal-text" id="panel-goal-text">/ 10 개</div>
+    </div>
+    <div class="stamp-dots" id="panel-dots"></div>
+    <div class="stamp-btns">
+      <button class="btn btn-primary" id="btn-stamp-add">+ 스탬프 찍기</button>
+      <button class="btn btn-danger" id="btn-stamp-use">리워드 사용</button>
+    </div>
+    <div class="history-list" id="panel-history"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://knwaqyeznxvhkmvqigaf.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtud2FxeWV6bnh2aGttdnFpZ2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NDUxODUsImV4cCI6MjA5NzMyMTE4NX0.7WZwkIXnMxzCDvAy8JCRUp5ybXwFDQJc7GHfHhfXF_M';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentOwner = null;
+let currentCardId = null;
+let currentGoal = 10;
+let currentCount = 0;
+
+// ── 유틸 ──────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function fmtDate(ts) {
+  const d = new Date(ts);
+  return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+// ── QR 생성 (Google Charts API) ───────────────────
+function makeQR(text) {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(text)}`;
+}
+
+// ── 탭 전환 ──────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// ── 인증 ─────────────────────────────────────────
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (session) {
+    await initDashboard(session.user.id);
+  } else {
+    showLogin();
+  }
+});
+
+document.getElementById('btn-login').addEventListener('click', async () => {
+  const email = document.getElementById('login-email').value.trim();
+  const pw    = document.getElementById('login-pw').value;
+  const { error } = await sb.auth.signInWithPassword({ email, password: pw });
+  if (error) showToast('로그인 실패: ' + error.message);
+});
+
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  await sb.auth.signOut();
+});
+
+function showLogin() {
+  document.getElementById('screen-login').style.display = 'flex';
+  document.getElementById('screen-dashboard').style.display = 'none';
+  document.getElementById('header-store').textContent = '';
+  currentOwner = null;
+}
+
+async function initDashboard(uid) {
+  const { data: owner } = await sb.from('qr_owners').select('*').eq('id', uid).single();
+  if (!owner) { showLogin(); return; }
+  currentOwner = owner;
+  document.getElementById('screen-login').style.display = 'none';
+  document.getElementById('screen-dashboard').style.display = 'block';
+  document.getElementById('header-store').textContent = owner.store_name;
+  await loadTemplates();
+  await loadCards();
+}
+
+// ── 템플릿 ───────────────────────────────────────
+async function loadTemplates() {
+  const { data } = await sb.from('stamp_templates')
+    .select('*').eq('owner_id', currentOwner.id).order('created_at');
+
+  const el = document.getElementById('templates-list');
+  const sel = document.getElementById('issue-template');
+  sel.innerHTML = '<option value="">템플릿 선택</option>';
+
+  if (!data || data.length === 0) {
+    el.innerHTML = '<div class="empty">템플릿이 없습니다</div>';
+    return;
+  }
+
+  el.innerHTML = data.map(t => `
+    <div class="template-item">
+      <div class="template-info">
+        <div class="reward">${t.reward}</div>
+        <div class="goal">스탬프 ${t.stamp_goal}개 달성</div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="deleteTemplate('${t.id}')">삭제</button>
+    </div>
+  `).join('');
+
+  data.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t.id;
+    opt.textContent = `${t.reward} (${t.stamp_goal}개)`;
+    opt.dataset.goal = t.stamp_goal;
+    sel.appendChild(opt);
+  });
+}
+
+document.getElementById('btn-add-template').addEventListener('click', async () => {
+  const reward = document.getElementById('tmpl-reward').value.trim();
+  const goal   = parseInt(document.getElementById('tmpl-goal').value);
+  if (!reward || !goal) return showToast('리워드와 목표 수를 입력하세요');
+  const { error } = await sb.from('stamp_templates').insert({
+    owner_id: currentOwner.id, reward, stamp_goal: goal
+  });
+  if (error) return showToast('오류: ' + error.message);
+  document.getElementById('tmpl-reward').value = '';
+  document.getElementById('tmpl-goal').value = '10';
+  showToast('템플릿 추가 완료');
+  await loadTemplates();
+});
+
+async function deleteTemplate(id) {
+  if (!confirm('삭제할까요?')) return;
+  await sb.from('stamp_templates').delete().eq('id', id);
+  await loadTemplates();
+}
+
+// ── 카드 발급 ─────────────────────────────────────
+document.getElementById('btn-open-issue').addEventListener('click', () => {
+  document.getElementById('qr-result').style.display = 'none';
+  document.getElementById('btn-issue-confirm').style.display = 'block';
+  document.getElementById('modal-issue').classList.add('open');
+});
+
+document.getElementById('btn-modal-cancel').addEventListener('click', () => {
+  document.getElementById('modal-issue').classList.remove('open');
+  loadCards();
+});
+
+document.getElementById('btn-issue-confirm').addEventListener('click', async () => {
+  const sel = document.getElementById('issue-template');
+  const tid = sel.value;
+  if (!tid) return showToast('템플릿을 선택하세요');
+
+  const { data, error } = await sb.from('stamp_cards').insert({
+    template_id: tid,
+    owner_id: currentOwner.id
+  }).select().single();
+
+  if (error) return showToast('발급 오류: ' + error.message);
+
+  const cardUrl = `${location.origin}/qr_stamp/stampcard/?id=${data.id}`;
+  const qrEl = document.getElementById('qr-result');
+  qrEl.style.display = 'block';
+  qrEl.innerHTML = `
+    <img src="${makeQR(cardUrl)}" width="180" height="180" style="border-radius:8px;" />
+    <p>손님에게 QR을 보여주거나 링크를 공유하세요</p>
+    <div class="qr-url">${cardUrl}</div>
+  `;
+  document.getElementById('btn-issue-confirm').style.display = 'none';
+  showToast('카드 발급 완료!');
+});
+
+// ── 카드 목록 ─────────────────────────────────────
+async function loadCards() {
+  const { data: cards } = await sb.from('stamp_cards')
+    .select('*, stamp_templates(reward, stamp_goal)')
+    .eq('owner_id', currentOwner.id)
+    .order('issued_at', { ascending: false });
+
+  const el = document.getElementById('cards-list');
+  if (!cards || cards.length === 0) {
+    el.innerHTML = '<div class="empty">발급된 카드가 없습니다</div>';
+    return;
+  }
+
+  // 각 카드의 스탬프 합계 조회
+  const cardIds = cards.map(c => c.id);
+  const { data: events } = await sb.from('stamp_events')
+    .select('card_id, delta')
+    .in('card_id', cardIds);
+
+  const sumMap = {};
+  (events || []).forEach(e => {
+    sumMap[e.card_id] = (sumMap[e.card_id] || 0) + e.delta;
+  });
+
+  el.innerHTML = cards.map(c => {
+    const count = sumMap[c.id] || 0;
+    const goal  = c.stamp_templates?.stamp_goal || 10;
+    const reward = c.stamp_templates?.reward || '';
+    const short = c.id.slice(0, 8) + '...';
+    return `
+      <div class="stamp-card-item">
+        <div class="card-info">
+          <div class="card-id">${short}</div>
+          <div class="card-stamp">${count} / ${goal} 개</div>
+          <div class="card-reward">${reward}</div>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-secondary btn-sm" onclick="openStampPanel('${c.id}', ${goal})">관리</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── 스탬프 패널 ───────────────────────────────────
+async function openStampPanel(cardId, goal) {
+  currentCardId = cardId;
+  currentGoal   = goal;
+  await refreshPanel();
+  document.getElementById('panel-stamp').classList.add('open');
+}
+
+async function refreshPanel() {
+  const { data: events } = await sb.from('stamp_events')
+    .select('*').eq('card_id', currentCardId)
+    .order('stamped_at', { ascending: false });
+
+  currentCount = (events || []).reduce((s, e) => s + e.delta, 0);
+
+  document.getElementById('panel-count').textContent = currentCount;
+  document.getElementById('panel-goal-text').textContent = `/ ${currentGoal} 개`;
+
+  // 도트
+  const dots = document.getElementById('panel-dots');
+  dots.innerHTML = Array.from({ length: currentGoal }, (_, i) =>
+    `<div class="dot ${i < currentCount ? 'filled' : ''}"></div>`
+  ).join('');
+
+  // 이력
+  const hist = document.getElementById('panel-history');
+  if (!events || events.length === 0) {
+    hist.innerHTML = '<div class="empty">이력 없음</div>';
+    return;
+  }
+  hist.innerHTML = events.slice(0, 10).map(e => `
+    <div class="history-item">
+      <span class="${e.delta > 0 ? 'delta-pos' : 'delta-neg'}">
+        ${e.delta > 0 ? '+' : ''}${e.delta} ${e.note || ''}
+      </span>
+      <span class="ts">${fmtDate(e.stamped_at)}</span>
+    </div>
+  `).join('');
+}
+
+document.getElementById('btn-panel-close').addEventListener('click', () => {
+  document.getElementById('panel-stamp').classList.remove('open');
+  loadCards();
+});
+
+document.getElementById('btn-stamp-add').addEventListener('click', async () => {
+  const { error } = await sb.from('stamp_events').insert({
+    card_id: currentCardId,
+    owner_id: currentOwner.id,
+    delta: 1,
+    note: '스탬프 적립'
+  });
+  if (error) return showToast('오류: ' + error.message);
+  showToast('스탬프 +1 ✓');
+  await refreshPanel();
+});
+
+document.getElementById('btn-stamp-use').addEventListener('click', async () => {
+  if (currentCount < currentGoal) return showToast(`스탬프가 부족합니다 (${currentCount}/${currentGoal})`);
+  if (!confirm(`리워드를 사용할까요? (-${currentGoal}개)`)) return;
+  const { error } = await sb.from('stamp_events').insert({
+    card_id: currentCardId,
+    owner_id: currentOwner.id,
+    delta: -currentGoal,
+    note: '리워드 사용'
+  });
+  if (error) return showToast('오류: ' + error.message);
+  showToast('리워드 사용 완료!');
+  await refreshPanel();
+});
+
+// ── URL scan 파라미터 처리 (QR 스캔 후 진입) ────────
+const params = new URLSearchParams(location.search);
+const scanId = params.get('scan');
+if (scanId) {
+  sb.auth.getSession().then(({ data }) => {
+    if (data.session) {
+      // 로그인 상태면 해당 카드 바로 열기
+      sb.from('stamp_cards')
+        .select('*, stamp_templates(stamp_goal)')
+        .eq('id', scanId).single()
+        .then(({ data: card }) => {
+          if (card) openStampPanel(card.id, card.stamp_templates?.stamp_goal || 10);
+        });
+    }
+  });
+}
+</script>
+</body>
+</html>
