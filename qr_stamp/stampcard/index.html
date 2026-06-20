@@ -1,1 +1,414 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#00b359" />
+  <title>스탬프 카드</title>
+  <link rel="manifest" href="./manifest.json" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #f5f5f5;
+      --surface: #ffffff;
+      --border: #e0e0e0;
+      --accent: #00b359;
+      --accent-dim: #009948;
+      --text: #1a1a1a;
+      --text-dim: #666;
+      --radius: 14px;
+    }
 
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── 헤더 ── */
+    .header {
+      background: var(--accent);
+      color: #fff;
+      padding: 20px 20px 24px;
+      text-align: center;
+    }
+    .header .brand {
+      font-size: 0.85rem;
+      font-weight: 600;
+      opacity: 0.85;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+    .header .store {
+      font-size: 1.4rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+
+    /* ── 메인 ── */
+    .main {
+      flex: 1;
+      padding: 20px 16px;
+      max-width: 420px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* ── 카드 비주얼 ── */
+    .stamp-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+
+    .reward-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+    .reward-text {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 20px;
+    }
+
+    /* 도트 그리드 */
+    .dots-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .dot {
+      aspect-ratio: 1;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      transition: all 0.3s;
+    }
+    .dot.filled {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    .dot.filled::after { content: '✓'; color: #fff; font-size: 15px; font-weight: 700; }
+
+    /* 진행 바 */
+    .progress-wrap {
+      margin-bottom: 8px;
+    }
+    .progress-bar {
+      height: 8px;
+      background: var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 999px;
+      transition: width 0.5s ease;
+    }
+    .progress-text {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      margin-top: 6px;
+    }
+    .progress-text .current { color: var(--accent); font-weight: 700; }
+
+    /* ── QR 섹션 ── */
+    .qr-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 20px;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .qr-box .qr-label {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      margin-bottom: 16px;
+    }
+    .qr-box img {
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+    .qr-box .card-id {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      font-family: monospace;
+      margin-top: 10px;
+      word-break: break-all;
+    }
+
+    /* ── 설치 배너 ── */
+    #install-banner {
+      display: none;
+      background: var(--accent);
+      color: #fff;
+      padding: 14px 16px;
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    #install-banner p { font-size: 0.88rem; font-weight: 600; }
+    #install-banner button {
+      background: #fff;
+      color: var(--accent);
+      border: none;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+      white-space: nowrap;
+      font-family: inherit;
+    }
+
+    /* ── 에러/로딩 ── */
+    .center-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 60vh;
+      gap: 12px;
+      color: var(--text-dim);
+      text-align: center;
+      padding: 24px;
+    }
+    .center-screen .ei { font-size: 3rem; }
+    .center-screen p { font-size: 0.95rem; }
+
+    /* ── 완료 메시지 ── */
+    .complete-badge {
+      display: none;
+      background: #e6f7ef;
+      border: 1px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 16px;
+      text-align: center;
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 1rem;
+      margin-bottom: 16px;
+    }
+    .complete-badge.show { display: block; }
+
+    /* ── 하단 ── */
+    .footer {
+      text-align: center;
+      padding: 16px;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+    }
+    .footer span { color: var(--accent); font-weight: 700; }
+
+    /* 숨김 */
+    #screen-error { display: none; }
+    #screen-card  { display: none; }
+    #screen-loading { display: flex; }
+  </style>
+</head>
+<body>
+
+<!-- 로딩 -->
+<div id="screen-loading" class="center-screen">
+  <div class="ei">⏳</div>
+  <p>카드를 불러오는 중...</p>
+</div>
+
+<!-- 에러 -->
+<div id="screen-error" class="center-screen">
+  <div class="ei">❌</div>
+  <p id="error-msg">카드를 찾을 수 없습니다</p>
+</div>
+
+<!-- 카드 -->
+<div id="screen-card">
+
+  <div class="header">
+    <div class="brand">Qding 스탬프</div>
+    <div class="store" id="store-name">-</div>
+  </div>
+
+  <div class="main">
+
+    <!-- 설치 배너 -->
+    <div id="install-banner">
+      <p>📲 홈화면에 추가하면 더 편해요!</p>
+      <button id="btn-install">추가</button>
+    </div>
+
+    <!-- 완료 배지 -->
+    <div class="complete-badge" id="complete-badge">
+      🎉 스탬프를 모두 모았어요! 사장님께 보여주세요
+    </div>
+
+    <!-- 스탬프 카드 -->
+    <div class="stamp-card">
+      <div class="reward-label">리워드</div>
+      <div class="reward-text" id="reward-text">-</div>
+
+      <div class="dots-grid" id="dots-grid"></div>
+
+      <div class="progress-wrap">
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+        </div>
+        <div class="progress-text">
+          <span class="current" id="progress-current">0개</span>
+          <span id="progress-goal">목표 10개</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- QR 코드 -->
+    <div class="qr-box">
+      <div class="qr-label">사장님이 스캔하는 QR 코드</div>
+      <img id="qr-img" src="" width="180" height="180" alt="QR Code" />
+      <div class="card-id" id="card-id-text"></div>
+    </div>
+
+  </div>
+
+  <div class="footer">Powered by <span>Qding</span></div>
+
+</div>
+
+<script>
+const SUPABASE_URL = 'https://knwaqyeznxvhkmvqigaf.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtud2FxeWV6bnh2aGttdnFpZ2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NDUxODUsImV4cCI6MjA5NzMyMTE4NX0.7WZwkIXnMxzCDvAy8JCRUp5ybXwFDQJc7GHfHhfXF_M';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const params = new URLSearchParams(location.search);
+const cardId = params.get('id');
+
+function show(id) {
+  ['screen-loading','screen-error','screen-card'].forEach(s => {
+    document.getElementById(s).style.display = s === id ? (id === 'screen-card' ? 'block' : 'flex') : 'none';
+  });
+}
+
+function showError(msg) {
+  document.getElementById('error-msg').textContent = msg;
+  show('screen-error');
+}
+
+async function init() {
+  if (!cardId) { showError('카드 정보가 없습니다'); return; }
+
+  // 오너 로그인 상태 확인 → 오너면 stamp.html로 리다이렉트
+  const { data: { session } } = await db.auth.getSession();
+  if (session) {
+    location.href = `../stamp.html?id=${cardId}`;
+    return;
+  }
+
+  // 카드 조회
+  const { data: card, error } = await db
+    .from('stamp_cards')
+    .select('*, stamp_templates(reward, stamp_goal), qr_owers(store_name)')
+    .eq('id', cardId)
+    .single();
+
+  if (error || !card) { showError('카드를 찾을 수 없습니다'); return; }
+
+  // 스탬프 합계
+  const { data: events } = await db
+    .from('stamp_events')
+    .select('delta')
+    .eq('card_id', cardId);
+
+  const count = (events || []).reduce((s, e) => s + e.delta, 0);
+  const goal  = card.stamp_templates?.stamp_goal || 10;
+  const pct   = Math.min(Math.round((count / goal) * 100), 100);
+
+  // 렌더링
+  document.getElementById('store-name').textContent    = card.qr_owers?.store_name || 'Qding';
+  document.getElementById('reward-text').textContent   = card.stamp_templates?.reward || '-';
+  document.getElementById('progress-current').textContent = `${count}개`;
+  document.getElementById('progress-goal').textContent    = `목표 ${goal}개`;
+  document.getElementById('progress-fill').style.width    = pct + '%';
+  document.getElementById('card-id-text').textContent     = cardId;
+
+  // PWA manifest 동적 title
+  document.title = (card.qr_owers?.store_name || 'Qding') + ' 스탬프 카드';
+
+  // 도트
+  const grid = document.getElementById('dots-grid');
+  grid.innerHTML = Array.from({ length: goal }, (_, i) =>
+    `<div class="dot ${i < count ? 'filled' : ''}"></div>`
+  ).join('');
+
+  // QR
+  const cardUrl = location.href;
+  document.getElementById('qr-img').src =
+    `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(cardUrl)}`;
+
+  // 완료 배지
+  if (count >= goal) {
+    document.getElementById('complete-badge').classList.add('show');
+  }
+
+  show('screen-card');
+}
+
+// ── PWA 설치 배너 ────────────────────────────────
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('install-banner').style.display = 'flex';
+});
+
+document.getElementById('btn-install').addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  if (outcome === 'accepted') {
+    document.getElementById('install-banner').style.display = 'none';
+  }
+  deferredPrompt = null;
+});
+
+// ── Supabase Realtime (스탬프 찍히면 자동 갱신) ──
+function subscribeRealtime() {
+  db.channel('stamp_events')
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'stamp_events',
+      filter: `card_id=eq.${cardId}`
+    }, () => {
+      init();  // 새 이벤트 오면 전체 재로드
+    })
+    .subscribe();
+}
+
+init().then(subscribeRealtime);
+</script>
+</body>
+</html>
