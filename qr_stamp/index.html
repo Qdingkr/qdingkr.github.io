@@ -490,22 +490,23 @@ document.querySelectorAll('.tab').forEach(tab => {
 });
 
 // ── 인증 ─────────────────────────────────────────
-db.auth.onAuthStateChange(async (event, session) => {
-  if (session) await initDashboard(session.user);
-  else showLogin();
-});
-
 document.getElementById('btn-login').addEventListener('click', async () => {
   const email = document.getElementById('login-email').value.trim();
   const pw    = document.getElementById('login-pw').value;
   const errEl = document.getElementById('login-error');
   errEl.textContent = '';
-  const { error } = await db.auth.signInWithPassword({ email, password: pw });
-  if (error) errEl.textContent = '이메일 또는 비밀번호를 확인해주세요.';
+
+  const { data, error } = await db.auth.signInWithPassword({ email, password: pw });
+  if (error) {
+    errEl.textContent = '이메일 또는 비밀번호를 확인해주세요.';
+    return;
+  }
+  await initDashboard(data.user);
 });
 
 document.getElementById('btn-logout').addEventListener('click', async () => {
   await db.auth.signOut();
+  location.reload();
 });
 
 function showLogin() {
@@ -513,6 +514,11 @@ function showLogin() {
   document.getElementById('dashboard').style.display = 'none';
   currentOwner = null;
 }
+
+// 자동 로그인 체크 (기존 세션 있으면 바로 대시보드)
+db.auth.getSession().then(({ data: { session } }) => {
+  if (session) initDashboard(session.user);
+});
 
 async function initDashboard(user) {
   // 기존 qr_owers 테이블 그대로 사용
