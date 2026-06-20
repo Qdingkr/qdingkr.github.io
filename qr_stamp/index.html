@@ -700,6 +700,21 @@ async function loadCards() {
   }).join('');
 }
 
+// ── QR 보기 ───────────────────────────────────────
+function showCardQR(cardId) {
+  const cardUrl = location.origin + '/qr_stamp/stampcard/?id=' + cardId;
+  document.getElementById('modal-qr-img').src =
+    'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(cardUrl);
+  document.getElementById('modal-qr-url').textContent = cardUrl;
+  const modal = document.getElementById('modal-qr');
+  modal.style.display = 'flex';
+  document.getElementById('btn-qr-close').onclick = () => modal.style.display = 'none';
+  document.getElementById('btn-qr-copy').onclick = () => {
+    navigator.clipboard.writeText(cardUrl);
+    showToast('링크 복사 완료 👍');
+  };
+}
+
 // ── 스탬프 패널 ───────────────────────────────────
 async function openStampPanel(cardId, goal) {
   currentCardId = cardId;
