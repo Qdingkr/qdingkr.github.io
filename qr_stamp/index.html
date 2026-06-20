@@ -421,6 +421,7 @@
     <select id="issue-template">
       <option value="">템플릿 선택</option>
     </select>
+    <input type="text" id="issue-memo" placeholder="손님 메모 (예: 왕단골 기무식이 아저씨)" style="margin-top:10px;" />
     <div id="qr-result" style="display:none;"></div>
     <div class="modal-btns">
       <button class="btn btn-ghost" id="btn-modal-cancel">닫기</button>
@@ -635,7 +636,7 @@ document.getElementById('btn-issue-confirm').addEventListener('click', async () 
 
   const { data, error } = await db
     .from('stamp_cards')
-    .insert({ template_id: tid, owner_id: currentOwner.id })
+    .insert({ template_id: tid, owner_id: currentOwner.id, memo: document.getElementById('issue-memo').value.trim() || null })
     .select()
     .single();
 
@@ -688,12 +689,14 @@ async function loadCards() {
       <div class="card-item">
         <div style="flex:1;">
           <div class="card-id">${c.id.slice(0,8)}…</div>
+          ${c.memo ? `<div style="font-size:0.9rem; font-weight:600; margin-top:2px;">${c.memo}</div>` : ''}
           <div class="card-stamp">${count} / ${goal} 개</div>
           <div class="card-reward">${reward}</div>
         </div>
         <div class="card-actions">
           <button class="btn btn-ghost btn-sm" onclick="showCardQR('${c.id}')">QR</button>
           <button class="btn btn-ghost btn-sm" onclick="location.href='./stamp.html?id=${c.id}'">관리</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteCard('${c.id}')">삭제</button>
         </div>
       </div>
     `;
@@ -791,6 +794,15 @@ document.getElementById('btn-stamp-use').addEventListener('click', async () => {
 });
 
 // QR 스캔 → stamp.html?id={card_id} 로 직접 이동
+
+// ── 카드 삭제 ───────────────────────────────────
+async function deleteCard(cardId) {
+  if (!confirm('카드를 삭제할까요?\n이력도 모두 삭제됩니다.')) return;
+  await db.from('stamp_events').delete().eq('card_id', cardId);
+  await db.from('stamp_cards').delete().eq('id', cardId);
+  showToast('카드 삭제 완료');
+  await loadCards();
+}
 </script>
 </body>
 </html>
