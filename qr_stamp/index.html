@@ -689,7 +689,7 @@ async function loadCards() {
       <div class="card-item">
         <div style="flex:1;">
           <div class="card-id">${c.id.slice(0,8)}…</div>
-          ${c.memo ? `<div style="font-size:0.9rem; font-weight:600; margin-top:2px;">${c.memo}</div>` : ''}
+          <div style="font-size:0.9rem; font-weight:600; margin-top:4px; color:var(--text-dim); cursor:pointer;" onclick="editMemo(this,'${c.id}')">${c.memo || '+ 메모 추가'}</div>
           <div class="card-stamp">${count} / ${goal} 개</div>
           <div class="card-reward">${reward}</div>
         </div>
@@ -794,6 +794,26 @@ document.getElementById('btn-stamp-use').addEventListener('click', async () => {
 });
 
 // QR 스캔 → stamp.html?id={card_id} 로 직접 이동
+
+// ── 메모 수정 ───────────────────────────────────
+function editMemo(el, cardId) {
+  const current = el.textContent === '+ 메모 추가' ? '' : el.textContent;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = current;
+  input.placeholder = '손님 메모 입력';
+  input.style.cssText = 'font-size:0.9rem; padding:4px 8px; border-radius:6px; border:1px solid var(--accent); width:100%; outline:none;';
+  el.replaceWith(input);
+  input.focus();
+
+  async function save() {
+    const memo = input.value.trim() || null;
+    await db.from('stamp_cards').update({ memo }).eq('id', cardId);
+    await loadCards();
+  }
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
+  input.addEventListener('blur', save);
+}
 
 // ── 카드 삭제 ───────────────────────────────────
 async function deleteCard(cardId) {
