@@ -801,17 +801,22 @@ function editMemo(el, cardId) {
   const input = document.createElement('input');
   input.type = 'text';
   input.value = current;
-  input.placeholder = '손님 메모 입력';
+  input.placeholder = '손님 메모 입력 후 엔터';
   input.style.cssText = 'font-size:0.9rem; padding:4px 8px; border-radius:6px; border:1px solid var(--accent); width:100%; outline:none;';
   el.replaceWith(input);
   input.focus();
 
+  let saved = false;
   async function save() {
+    if (saved) return;
+    saved = true;
     const memo = input.value.trim() || null;
-    await db.from('stamp_cards').update({ memo }).eq('id', cardId);
+    const { error } = await db.from('stamp_cards').update({ memo }).eq('id', cardId);
+    if (error) { showToast('저장 실패: ' + error.message); saved = false; return; }
+    showToast('메모 저장 완료 ✓');
     await loadCards();
   }
-  input.addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
   input.addEventListener('blur', save);
 }
 
