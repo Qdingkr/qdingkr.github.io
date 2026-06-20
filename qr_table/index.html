@@ -9,38 +9,38 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #1a1a1a; min-height: 100vh; padding: 2rem 1rem; }
   .container { max-width: 400px; margin: 0 auto; }
-
   .logo { font-size: 1.2rem; font-weight: 700; color: #1a1a1a; text-align: center; margin-bottom: 2rem; }
   .logo span { color: #00A876; }
-
-  /* 테이블 정보 */
   .table-card { background: #fff; border: 1px solid #e8e8e8; border-radius: 16px; padding: 2rem 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 2px 12px rgba(0,0,0,0.06); text-align: center; }
   .table-name { font-size: 1.8rem; font-weight: 700; color: #1a1a1a; margin-bottom: 0.5rem; }
   .table-desc { font-size: 0.9rem; color: #888; line-height: 1.6; }
-
-  /* 빠른 호출 버튼 */
   .quick-title { font-size: 0.75rem; font-weight: 600; color: #aaa; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.75rem; }
   .quick-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1.5rem; }
   .quick-btn { background: #fff; border: 1.5px solid #e0e0e0; border-radius: 12px; padding: 1rem 0.75rem; font-size: 0.9rem; font-weight: 600; color: #1a1a1a; cursor: pointer; transition: all 0.2s; text-align: center; }
   .quick-btn:hover { border-color: #00A876; color: #00A876; background: #f0faf6; }
   .quick-btn:active { transform: scale(0.97); }
+  .quick-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; border-color: #e0e0e0; color: #aaa; background: #fff; }
   .quick-btn .icon { font-size: 1.4rem; display: block; margin-bottom: 0.3rem; }
-
-  /* 직접 입력 */
   .custom-card { background: #fff; border: 1px solid #e8e8e8; border-radius: 16px; padding: 1.25rem; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
   .custom-title { font-size: 0.75rem; font-weight: 600; color: #aaa; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.75rem; }
   textarea { width: 100%; background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 8px; padding: 0.75rem 1rem; color: #1a1a1a; font-size: 0.9rem; font-family: inherit; outline: none; resize: none; height: 80px; line-height: 1.5; transition: border-color 0.2s; margin-bottom: 0.75rem; }
   textarea:focus { border-color: #00A876; background: #fff; }
   textarea::placeholder { color: #bbb; }
+  textarea:disabled { opacity: 0.35; cursor: not-allowed; }
   .send-btn { width: 100%; background: #00A876; color: #fff; border: none; border-radius: 8px; padding: 0.85rem; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: background 0.2s, transform 0.1s; }
   .send-btn:hover { background: #009068; }
   .send-btn:active { transform: scale(0.98); }
   .send-btn:disabled { background: #ccc; cursor: not-allowed; }
 
-  /* 완료 메시지 */
+  /* ★ 완료 안내 카드 */
+  .done-card { background: #f0faf6; border: 1.5px solid #00A876; border-radius: 16px; padding: 2rem 1.5rem; text-align: center; margin-top: 1.5rem; display: none; }
+  .done-card.show { display: block; }
+  .done-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+  .done-title { font-size: 1rem; font-weight: 700; color: #00A876; margin-bottom: 0.5rem; }
+  .done-desc { font-size: 0.85rem; color: #888; line-height: 1.6; }
+
   .toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: #1a1a1a; color: #fff; font-size: 0.9rem; font-weight: 600; padding: 0.8rem 1.5rem; border-radius: 50px; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
   .toast.show { opacity: 1; }
-
   .loading { text-align: center; color: #bbb; font-size: 0.85rem; padding: 3rem 0; }
   .error { text-align: center; color: #e05050; font-size: 0.85rem; padding: 3rem 0; }
 </style>
@@ -49,6 +49,13 @@
 <div class="container">
   <div class="logo">Q<span>ding</span></div>
   <div id="mainContent"><div class="loading">불러오는 중...</div></div>
+
+  <!-- ★ 완료 안내 -->
+  <div class="done-card" id="doneCard">
+    <div class="done-icon">✅</div>
+    <div class="done-title">요청이 전송되었습니다</div>
+    <div class="done-desc">추가 요청이 필요하시면<br>QR 코드를 다시 스캔해주세요</div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -62,7 +69,10 @@
   const params = new URLSearchParams(window.location.search)
   const tableId = parseInt(params.get('id'))
 
-  // 빠른 호출 버튼 목록
+  // ★ 세션 키 (테이블별로 구분)
+  const SESSION_KEY = 'qding_called_' + tableId
+  const SESSION_DURATION = 2 * 60 * 60 * 1000  // 2시간
+
   const QUICK_CALLS = [
     { icon: '🙋', label: '직원 호출' },
     { icon: '💧', label: '물 주세요' },
@@ -70,21 +80,54 @@
     { icon: '🍽️', label: '그릇 치워주세요' },
   ]
 
+  // ★ 세션 확인 — 이미 호출했는지
+  function isSessionActive() {
+    const expiry = sessionStorage.getItem(SESSION_KEY)
+    if (!expiry) return false
+    if (Date.now() > parseInt(expiry)) {
+      sessionStorage.removeItem(SESSION_KEY)
+      return false
+    }
+    return true
+  }
+
+  // ★ 세션 저장
+  function saveSession() {
+    const expiry = Date.now() + SESSION_DURATION
+    sessionStorage.setItem(SESSION_KEY, expiry)
+  }
+
+  // ★ 전체 버튼 비활성화 + 완료 카드 표시
+  function disableAll() {
+    document.querySelectorAll('.quick-btn, .send-btn').forEach(btn => {
+      btn.disabled = true
+    })
+    const ta = document.getElementById('customMsg')
+    if (ta) ta.disabled = true
+    document.getElementById('doneCard').classList.add('show')
+  }
+
   async function loadTable() {
+    const el = document.getElementById('mainContent')
+
+    // ★ 세션 확인 — 이미 호출했으면 바로 완료 화면
+    if (isSessionActive()) {
+      el.innerHTML = ''
+      document.getElementById('doneCard').classList.add('show')
+      return
+    }
+
     const { data, error } = await db
       .from('qr_tables')
       .select('*')
       .eq('id', tableId)
       .single()
 
-    const el = document.getElementById('mainContent')
-
     if (error || !data) {
       el.innerHTML = '<div class="error">테이블을 찾을 수 없습니다</div>'
       return
     }
 
-    // 빠른 버튼
     const quickBtns = QUICK_CALLS.map(q =>
       '<button class="quick-btn" onclick="sendCall(\'' + q.label + '\')">' +
         '<span class="icon">' + q.icon + '</span>' + q.label +
@@ -96,10 +139,8 @@
         '<div class="table-name">' + data.name + '</div>' +
         (data.description ? '<div class="table-desc">' + data.description + '</div>' : '') +
       '</div>' +
-
       '<div class="quick-title">빠른 호출</div>' +
       '<div class="quick-btns">' + quickBtns + '</div>' +
-
       '<div class="custom-card">' +
         '<div class="custom-title">직접 입력</div>' +
         '<textarea id="customMsg" placeholder="요청사항을 입력하세요"></textarea>' +
@@ -113,7 +154,10 @@
       .insert({ table_id: tableId, message, status: 'pending' })
 
     if (error) { showToast('전송 실패. 다시 시도해주세요 ❌'); return }
+
     showToast(message + ' 전송됨 ✓')
+    saveSession()   // ★ 세션 저장
+    setTimeout(() => disableAll(), 800)  // ★ 토스트 후 비활성화
   }
 
   async function sendCustom() {
@@ -127,13 +171,14 @@
       .from('qr_calls')
       .insert({ table_id: tableId, message: msg, status: 'pending' })
 
-    if (error) { showToast('전송 실패 ❌') }
-    else {
-      document.getElementById('customMsg').value = ''
+    if (error) {
+      showToast('전송 실패 ❌')
+      btn.disabled = false
+    } else {
       showToast('전송되었습니다 ✓')
+      saveSession()   // ★ 세션 저장
+      setTimeout(() => disableAll(), 800)
     }
-
-    btn.disabled = false
   }
 
   function showToast(msg) {
