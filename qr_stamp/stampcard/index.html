@@ -363,10 +363,10 @@ async function init() {
     `<div class="dot ${i < count ? 'filled' : ''}"></div>`
   ).join('');
 
-  // QR
-  const cardUrl = location.href;
+  // QR → 오너용 stamp.html 링크
+  const stampUrl = location.origin + '/qr_stamp/stamp.html?id=' + cardId;
   document.getElementById('qr-img').src =
-    `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(cardUrl)}`;
+    'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(stampUrl);
 
   // 완료 배지
   if (count >= goal) {
