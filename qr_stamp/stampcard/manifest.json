@@ -1,0 +1,22 @@
+{
+  "name": "스탬프 카드",
+  "short_name": "스탬프",
+  "description": "Qding 스탬프 카드",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f5f5f5",
+  "theme_color": "#00b359",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://api.qrserver.com/v1/create-qr-code/?size=192x192&data=qding-stamp",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://api.qrserver.com/v1/create-qr-code/?size=512x512&data=qding-stamp",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
