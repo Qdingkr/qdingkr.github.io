@@ -1,6 +1,6 @@
 # 🔖 Qding — QR 기반 소상공인 솔루션
 
-> **qding.kr** 에서 서비스 중입니다.  
+> **www.qding.kr** 에서 서비스 중입니다.  
 > 앱 설치 없이 · 회원가입 없이 · QR 하나로 시작하는 소상공인 도구 모음
 
 ---
@@ -16,8 +16,8 @@
 | 제품 | 설명 | 상태 |
 |------|------|------|
 | **QdingWait** | QR 기반 전자 대기번호 시스템 | ✅ 운영 중 |
-| **QdingStamp** | QR 기반 디지털 스탬프 카드 (PWA) | ✅ 운영 중 |
-| **QdingTable** | QR 기반 디지털 테이블 (PWA) | ✅ 운영 중 |
+| **QdingStamp** | QR 기반 디지털 스탬프 카드 | ✅ 운영 중 |
+| **QdingTable** | QR 기반 디지털 테이블  | ✅ 운영 중 |
 | **QdingShop** | QR 주문 + 대기표 + 손님 호출 (노점/푸드트럭 특화) | 🚧 개발 중 |
 
 ---
@@ -38,7 +38,7 @@ QR 하나로 시작
 
 - **Frontend** : Vanilla JS + PWA (GitHub Pages)
 - **Backend** : Supabase (PostgreSQL + Realtime + RLS)
-- **Hosting** : GitHub Pages (무료)
+- **Hosting** : GitHub Pages 
 - **Mobile** : Flutter (오너 관리 앱)
 
 ---
