@@ -7,7 +7,7 @@
 
 ## 🌐 서비스 URL
 
-**https://qding.kr** (qdingkr.github.io)
+**https://www.qding.kr** (qdingkr.github.io)
 
 ---
 
@@ -17,6 +17,7 @@
 |------|------|------|
 | **QdingWait** | QR 기반 전자 대기번호 시스템 | ✅ 운영 중 |
 | **QdingStamp** | QR 기반 디지털 스탬프 카드 (PWA) | ✅ 운영 중 |
+| **QdingTable** | QR 기반 디지털 테이블 (PWA) | ✅ 운영 중 |
 | **QdingShop** | QR 주문 + 대기표 + 손님 호출 (노점/푸드트럭 특화) | 🚧 개발 중 |
 
 ---
@@ -48,6 +49,7 @@ QR 하나로 시작
 qdingkr.github.io/
 ├── wait/         # QdingWait — 대기번호
 ├── stamp/        # QdingStamp — 스탬프카드
+├── table/        # QdingTable — 테이블호출벨
 ├── shop/         # QdingShop — 주문+대기 (예정)
 └── index.html    # 메인 랜딩
 ```
