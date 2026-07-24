@@ -1,77 +1,89 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QdingOrder - 로그인</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QdingOrder - 로그인</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="login-screen">
   <div class="logo">QdingOrder</div>
-  <p style="font-size:0.85rem; color:var(--text-dim); margin-top:-10px; margin-bottom:8px;">
-    노점상 QR 주문 시스템
-  </p>
+  <p style="font-size:0.85rem; color:var(--text-dim); margin-top:-10px; margin-bottom:8px;">노점상 QR 주문 시스템</p>
+
   <div class="login-box">
-    <h2 id="form-title">오너 로그인</h2>
+    <h2>오너 로그인</h2>
+
     <div class="form-group">
       <label class="form-label">이메일</label>
-      <input type="email" id="email" placeholder="owner@example.com" autocomplete="off">
+      <input type="email" id="emailInput" placeholder="owner@example.com" autocomplete="off">
     </div>
+
     <div class="form-group">
       <label class="form-label">비밀번호</label>
-      <input type="password" id="password" placeholder="••••••••">
+      <input type="password" id="passwordInput" placeholder="••••••••" autocomplete="new-password"
+             onkeydown="if(event.key==='Enter') login()">
     </div>
-    <p id="msg" class="error-msg" style="display:none;"></p>
-    <button class="btn btn-primary btn-block" id="login-btn" onclick="handleLogin()">로그인</button>
-    <button class="btn btn-ghost btn-block" id="toggle-btn" onclick="toggleMode()">계정이 없으신가요? 회원가입</button>
+
+    <div class="msg" id="msg" style="color:var(--danger); font-size:0.85rem; text-align:center; min-height:1.2em;"></div>
+
+    <button class="btn btn-primary btn-block" id="loginBtn" onclick="login()">로그인</button>
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase.js"></script>
 <script>
   const SUPABASE_URL = 'https://knwaqyeznxvhkmvqigaf.supabase.co'
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtud2FxeWV6bnh2aGttdnFpZ2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NDUxODUsImV4cCI6MjA5NzMyMTE4NX0.7WZwkIXnMxzCDvAy8JCRUp5ybXwFDQJc7GHfHhfXF_M'
   const { createClient } = supabase
   const db = createClient(SUPABASE_URL, SUPABASE_KEY)
-  let isSignup = false
-
-  document.getElementById('password').addEventListener('keydown', e => {
-    if (e.key === 'Enter') handleLogin()
-  })
-
-  ;(async () => {
+  
+  async function checkSession() {
     const { data: { session } } = await db.auth.getSession()
-    if (session) location.href = 'dashboard.html'
-  })()
-
-  function toggleMode() {
-    isSignup = !isSignup
-    document.getElementById('form-title').textContent = isSignup ? '회원가입' : '오너 로그인'
-    document.getElementById('login-btn').textContent  = isSignup ? '가입하기' : '로그인'
-    document.getElementById('toggle-btn').textContent = isSignup ? '이미 계정이 있으신가요? 로그인' : '계정이 없으신가요? 회원가입'
-    showMsg('')
+    if (session) window.location.href = 'dashboard.html'
   }
 
-  async function handleLogin() {
-    const email    = document.getElementById('email').value.trim()
-    const password = document.getElementById('password').value
-    const btn      = document.getElementById('login-btn')
+  async function login() {
+    const email    = document.getElementById('emailInput').value.trim()
+    const password = document.getElementById('passwordInput').value
+    const btn      = document.getElementById('loginBtn')
+    const msg      = document.getElementById('msg')
 
-    if (!email || !password) { showMsg('이메일과 비밀번호를 입력해주세요.'); return }
+    if (!email || !password) { msg.textContent = '이메일과 비밀번호를 입력해주세요'; return }
 
-    btn.disabled = true
-    btn.textContent = '처리중...'
-    showMsg('')
+    btn.disabled    = true
+    btn.textContent = '로그인 중...'
+    msg.textContent = ''
 
-  function showMsg(msg) {
-    const el = document.getElementById('msg')
-    el.textContent   = msg
-    el.style.display = msg ? 'block' : 'none'
+    const { data, error } = await db.auth.signInWithPassword({ email, password })
+
+    if (error) {
+      msg.textContent = '이메일 또는 비밀번호가 틀렸습니다'
+      btn.disabled    = false
+      btn.textContent = '로그인'
+      return
+    }
+
+    // qr_owers 등록 여부 확인 → 없으면 자동 생성
+    const { data: owner } = await db
+      .from('qr_owers')
+      .select('id')
+      .eq('id', data.user.id)
+      .single()
+
+    if (!owner) {
+      await db.from('qr_owers').insert({
+        id: data.user.id,
+        store_name: data.user.email,
+        is_open: false
+      })
+    }
+
+    window.location.href = 'setup.html'
   }
+
+  checkSession()
 </script>
-
 </body>
 </html>
