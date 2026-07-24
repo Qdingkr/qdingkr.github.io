@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>주문하기 | QdingOrder</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- 탑바 -->
+<div class="topbar">
+  <div>
+    <div class="logo">QdingOrder</div>
+    <div class="store-name" id="store-name">로딩중...</div>
+  </div>
+  <div id="open-badge" style="display:none;">
+    <span class="status-badge done">영업중</span>
+  </div>
+</div>
+
+<div class="container-sm" style="padding-top:16px;">
+
+  <!-- 영업종료 배너 -->
+  <div class="closed-banner" id="closed-banner" style="display:none;">
+    🚫 현재 영업 준비중이에요
+  </div>
+
+  <!-- 메뉴 목록 -->
+  <div class="section-header">
+    <span class="section-title">메뉴</span>
+  </div>
+
+  <div id="menu-list">
+    <div class="spinner"></div>
+  </div>
+
+  <!-- 주문 내역 -->
+  <div id="summary-section" style="display:none;">
+    <div class="section-header" style="margin-top:8px;">
+      <span class="section-title">주문 내역</span>
+    </div>
+    <div class="order-summary" id="order-summary"></div>
+  </div>
+
+  <div style="height:80px;"></div>
+
+</div>
+
+<!-- 하단 주문 버튼 -->
+<div class="bottom-bar" id="bottom-bar" style="display:none;">
+  <button class="btn btn-primary btn-block" id="order-btn" onclick="submitOrder()">
+    주문하기
+  </button>
+</div>
+
+<!-- 스크립트: CDN → supabase.js → 인라인 순서 보장 -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+
+<script>
+  let ownerId = getParam('owner_id');
+  let menus   = [];
+  let qty     = {};   // { menu_id: count }
+  let isOpen  = false;
+
+  // owner_id 없으면 안내
+  if (!ownerId) {
+    document.body.innerHTML = `
+      <div class="login-screen">
+        <div class="logo">QdingOrder</div>
+        <p style="color:var(--text-dim);">올바른 QR 코드를 스캔해주세요.</p>
+      </div>`;
+  } else {
+    init();
+  }
+
+  async function init() {
+    try {
+      const owner = await getOwner(ownerId);
+      document.getElementById('store-name').textContent = owner.store_name || '주문하기';
+      isOpen = owner.is_open;
+
+      if (!isOpen) {
+        document.getElementById('closed-banner').style.display = 'block';
+        document.getElementById('menu-list').innerHTML = '';
+        return;
+      }
+
+      document.getElementById('open-badge').style.display = 'block';
+      await loadMenus();
+
+    } catch (e) {
+      document.getElementById('menu-list').innerHTML =
+        `<div class="empty-state"><div class="empty-icon">⚠️</div><p>가게 정보를 불러올 수 없어요</p></div>`;
+    }
+  }
+
+  async function loadMenus() {
+    try {
+      menus = await getMenus(ownerId, true); // is_available=true만
+      renderMenus();
+    } catch (e) {
+      document.getElementById('menu-list').innerHTML =
+        `<div class="empty-state"><div class="empty-icon">⚠️</div><p>메뉴를 불러올 수 없어요</p></div>`;
+    }
+  }
+
+  function renderMenus() {
+    const el = document.getElementById('menu-list');
+
+    if (menus.length === 0) {
+      el.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">🍽️</div>
+          <p>등록된 메뉴가 없어요</p>
+        </div>`;
+      return;
+    }
+
+    el.innerHTML = menus.map(m => `
+      <div class="menu-item">
+        <div class="menu-item-info">
+          <div class="menu-item-name">${m.name}</div>
+          <div class="menu-item-price">${formatPrice(m.price)}</div>
+        </div>
+        <div class="qty-control">
+          <button class="qty-btn minus" onclick="changeQty('${m.id}', -1)">−</button>
+          <span class="qty-number" id="qty-${m.id}">0</span>
+          <button class="qty-btn plus" onclick="changeQty('${m.id}', 1)">+</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function changeQty(id, delta) {
+    qty[id] = Math.max(0, (qty[id] || 0) + delta);
+    document.getElementById(`qty-${id}`).textContent = qty[id];
+    updateSummary();
+  }
+
+  function updateSummary() {
+    const items = menus
+      .filter(m => qty[m.id] > 0)
+      .map(m => ({ ...m, qty: qty[m.id] }));
+
+    const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+    const hasItems = items.length > 0;
+
+    // 요약 섹션
+    const summarySection = document.getElementById('summary-section');
+    const summaryEl      = document.getElementById('order-summary');
+    const bottomBar      = document.getElementById('bottom-bar');
+    const orderBtn       = document.getElementById('order-btn');
+
+    if (hasItems) {
+      summarySection.style.display = 'block';
+      bottomBar.style.display = 'block';
+
+      summaryEl.innerHTML = `
+        ${items.map(i => `
+          <div class="order-summary-row">
+            <span>${i.name} × ${i.qty}</span>
+            <span>${formatPrice(i.price * i.qty)}</span>
+          </div>
+        `).join('')}
+        <div class="order-summary-total">
+          <span>합계</span>
+          <span class="order-summary-total-price">${formatPrice(total)}</span>
+        </div>
+      `;
+
+      orderBtn.textContent = `주문하기 · ${formatPrice(total)}`;
+    } else {
+      summarySection.style.display = 'none';
+      bottomBar.style.display = 'none';
+    }
+  }
+
+  async function submitOrder() {
+    const items = menus
+      .filter(m => qty[m.id] > 0)
+      .map(m => ({ name: m.name, price: m.price, qty: qty[m.id] }));
+
+    if (items.length === 0) return;
+
+    const btn = document.getElementById('order-btn');
+    btn.disabled = true;
+    btn.textContent = '주문 중...';
+
+    try {
+      const order = await createOrder(ownerId, items);
+      location.href = `order.html?order_id=${order.id}`;
+    } catch (e) {
+      btn.disabled = false;
+      updateSummary();
+      showToast('주문 실패: ' + e.message);
+    }
+  }
+
+  // 토스트
+  function showToast(msg) {
+    let el = document.getElementById('toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'toast';
+      el.className = 'toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2500);
+  }
+</script>
+
+</body>
+</html>
