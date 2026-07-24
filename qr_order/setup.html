@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>메뉴 설정 | QdingOrder</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>메뉴 설정 | QdingOrder</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
@@ -52,11 +54,13 @@
     <div style="display:grid; grid-template-columns:1fr 120px; gap:10px; margin-bottom:10px;">
       <div class="form-group" style="margin-bottom:0;">
         <label class="form-label">메뉴 이름</label>
-        <input type="text" id="menu-name" placeholder="예) 아메리카노">
+        <input type="text" id="menu-name" placeholder="예) 아메리카노"
+               onkeydown="if(event.key==='Enter') document.getElementById('menu-price').focus()">
       </div>
       <div class="form-group" style="margin-bottom:0;">
         <label class="form-label">가격 (원)</label>
-        <input type="number" id="menu-price" placeholder="3000" inputmode="numeric">
+        <input type="number" id="menu-price" placeholder="3000" inputmode="numeric"
+               onkeydown="if(event.key==='Enter') addMenu()">
       </div>
     </div>
     <button class="btn btn-primary" style="width:100%;" onclick="addMenu()">+ 메뉴 추가</button>
@@ -78,9 +82,6 @@
   }
 </style>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="supabase.js"></script>
 <script>
   const SUPABASE_URL = 'https://knwaqyeznxvhkmvqigaf.supabase.co'
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtud2FxeWV6bnh2aGttdnFpZ2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NDUxODUsImV4cCI6MjA5NzMyMTE4NX0.7WZwkIXnMxzCDvAy8JCRUp5ybXwFDQJc7GHfHhfXF_M'
@@ -93,7 +94,7 @@
 
   ;(async () => {
     const { data: { session } } = await db.auth.getSession()
-    if (!session) { location.href = 'index.html'; return }
+    if (!session) { window.location.href = 'index.html'; return }
     currentUser = session.user
     await loadOwner()
     await loadMenus()
@@ -103,8 +104,8 @@
   async function loadOwner() {
     const { data } = await db.from('qr_owers').select('*').eq('id', currentUser.id).single()
     if (!data) return
-    document.getElementById('store-name').textContent       = data.store_name || '내 가게'
-    document.getElementById('store-name-input').value = data.store_name || ''
+    document.getElementById('store-name').textContent      = data.store_name || '내 가게'
+    document.getElementById('store-name-input').value     = data.store_name || ''
   }
 
   async function saveStoreName() {
@@ -151,7 +152,7 @@
       <div class="setup-item ${m.is_available ? '' : 'unavailable'}">
         <div class="setup-item-info">
           <div class="setup-item-name">${m.name}</div>
-          <div class="setup-item-price">${formatPrice(m.price)}</div>
+          <div class="setup-item-price">${m.price.toLocaleString()}원</div>
         </div>
         <div class="setup-item-actions">
           <label class="toggle" title="${m.is_available ? '품절 처리' : '판매 재개'}">
@@ -171,7 +172,7 @@
     const price = parseInt(document.getElementById('menu-price').value)
     const errEl = document.getElementById('add-error')
 
-    if (!name)          { errEl.textContent = '메뉴 이름을 입력해주세요.'; errEl.style.display='block'; return }
+    if (!name)               { errEl.textContent = '메뉴 이름을 입력해주세요.';  errEl.style.display='block'; return }
     if (!price || price <= 0) { errEl.textContent = '올바른 가격을 입력해주세요.'; errEl.style.display='block'; return }
     errEl.style.display = 'none'
 
@@ -184,6 +185,7 @@
     renderMenus()
     document.getElementById('menu-name').value  = ''
     document.getElementById('menu-price').value = ''
+    document.getElementById('menu-name').focus()
     showToast('메뉴가 추가됐어요 ✅')
   }
 
@@ -210,6 +212,17 @@
     menus = menus.filter(m => m.id !== id)
     renderMenus()
     showToast('메뉴가 삭제됐어요')
+  }
+
+  function logout() {
+    db.auth.signOut().then(() => { window.location.href = 'index.html' })
+  }
+
+  function showToast(msg) {
+    const el = document.getElementById('toast')
+    el.textContent = msg
+    el.classList.add('show')
+    setTimeout(() => el.classList.remove('show'), 2500)
   }
 </script>
 
