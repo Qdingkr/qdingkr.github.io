@@ -66,32 +66,6 @@
     btn.textContent = '처리중...'
     showMsg('')
 
-    try {
-      if (isSignup) {
-        const { data, error } = await db.auth.signUp({ email, password })
-        if (error) throw error
-        if (data.user) {
-          await db.from('qr_owers').insert({
-            id: data.user.id,
-            store_name: email.split('@')[0],
-            is_open: false
-          })
-        }
-        showMsg('가입 완료! 이메일 확인 후 로그인해주세요.')
-        toggleMode()
-      } else {
-        const { error } = await db.auth.signInWithPassword({ email, password })
-        if (error) throw error
-        location.href = 'dashboard.html'
-      }
-    } catch (err) {
-      showMsg(err.message || '처리 중 오류가 발생했습니다.')
-    } finally {
-      btn.disabled    = false
-      btn.textContent = isSignup ? '가입하기' : '로그인'
-    }
-  }
-
   function showMsg(msg) {
     const el = document.getElementById('msg')
     el.textContent   = msg
