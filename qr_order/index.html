@@ -38,7 +38,7 @@
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtud2FxeWV6bnh2aGttdnFpZ2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NDUxODUsImV4cCI6MjA5NzMyMTE4NX0.7WZwkIXnMxzCDvAy8JCRUp5ybXwFDQJc7GHfHhfXF_M'
   const { createClient } = supabase
   const db = createClient(SUPABASE_URL, SUPABASE_KEY)
-  
+
   async function checkSession() {
     const { data: { session } } = await db.auth.getSession()
     if (session) window.location.href = 'dashboard.html'
@@ -80,7 +80,14 @@
       })
     }
 
-    window.location.href = 'setup.html'
+    // 메뉴 있으면 dashboard, 없으면 setup
+    const { data: menuData } = await db
+      .from('qr_menus')
+      .select('id')
+      .eq('owner_id', data.user.id)
+      .limit(1)
+
+    window.location.href = (menuData && menuData.length > 0) ? 'dashboard.html' : 'setup.html'
   }
 
   checkSession()
