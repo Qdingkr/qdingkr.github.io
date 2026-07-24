@@ -1,212 +1,304 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>메뉴 & QR — QdingOrder</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&display=swap" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
-<link href="style.css" rel="stylesheet">
-<style>
-  #qrbox { display:flex; justify-content:center; padding:16px; background:#fff; border:1.5px solid var(--ink); border-radius:4px; }
-  #qrbox img, #qrbox canvas { display:block; }
-  .sold-out .nm { text-decoration: line-through; color: var(--muted); }
-  .ord { display:flex; flex-direction:column; gap:2px; }
-  .ord button { width:30px; height:20px; border:1px solid var(--line); background:var(--card); border-radius:3px; cursor:pointer; font-size:11px; line-height:1; color:var(--ink); }
-  .ord button:disabled { opacity:.3; cursor:default; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>메뉴 설정 | QdingOrder</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="supabase.js"></script>
 </head>
 <body>
-<div class="wrap">
-  <header class="head">
-    <div class="eyebrow">Setup</div>
-    <h1>메뉴 & QR</h1>
-  </header>
 
-  <div class="card">
-    <label for="store">가게 이름</label>
-    <div class="row">
-      <input id="store" class="grow" type="text" maxlength="30" placeholder="예: 태백 어묵트럭">
-      <button class="btn sm" id="saveStore">저장</button>
-    </div>
+<!-- 탑바 -->
+<div class="topbar">
+  <div>
+    <div class="logo">QdingOrder</div>
+    <div class="store-name" id="store-name">로딩중...</div>
   </div>
-
-  <hr class="perf">
-
-  <h2>메뉴 추가</h2>
-  <div class="card">
-    <div class="row" style="margin-bottom:8px">
-      <input id="mname" class="grow" type="text" maxlength="30" placeholder="메뉴 이름">
-      <input id="mprice" type="number" inputmode="numeric" min="0" step="100" placeholder="가격" style="width:110px">
-    </div>
-    <button class="btn stamp" id="addMenu">메뉴 추가</button>
+  <div class="topbar-right">
+    <a href="dashboard.html" class="btn btn-ghost" style="padding:8px 14px; font-size:0.85rem;">대시보드</a>
+    <button class="btn btn-ghost" style="padding:8px 14px; font-size:0.85rem;" onclick="signOut()">로그아웃</button>
   </div>
-
-  <h2 style="margin-top:22px">메뉴판 <span class="muted" id="mcount"></span></h2>
-  <div class="card flat" id="menus"><p class="empty">불러오는 중...</p></div>
-
-  <hr class="perf">
-
-  <h2>손님용 QR</h2>
-  <div class="card">
-    <div id="qrbox"></div>
-    <p class="muted" style="word-break:break-all;margin:12px 0 10px" id="qrurl"></p>
-    <button class="btn ghost" id="copyUrl">주소 복사</button>
-    <button class="btn ghost" id="printQr" style="margin-top:8px">QR 인쇄</button>
-  </div>
-
-  <hr class="perf">
-  <a class="btn ghost" href="dashboard.html" style="text-align:center;text-decoration:none;line-height:normal">주문 관리로</a>
-  <p class="center" style="margin-top:12px"><a class="muted" id="displayLink" href="#">번호표 디스플레이 열기 ↗</a></p>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="supabase.js"></script>
+<div class="main">
+
+  <!-- 가게 이름 설정 -->
+  <div class="section-header" style="margin-top:4px;">
+    <span class="section-title">가게 설정</span>
+  </div>
+
+  <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:20px;">
+    <div class="form-group" style="margin-bottom:10px;">
+      <label class="form-label">가게 이름</label>
+      <input type="text" id="store-name-input" placeholder="가게 이름 입력">
+    </div>
+    <button class="btn btn-primary" style="width:100%;" onclick="saveStoreName()">저장</button>
+  </div>
+
+  <!-- QR 코드 -->
+  <div class="section-header">
+    <span class="section-title">손님용 QR</span>
+  </div>
+
+  <div class="qr-section" style="margin-bottom:20px;">
+    <p style="font-size:0.85rem; color:var(--text-dim); margin-bottom:8px;">
+      이 QR을 카운터에 부착하세요
+    </p>
+    <div id="qrcode"></div>
+    <div class="qr-url" id="qr-url"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="printQR()">🖨️ 인쇄</button>
+      <button class="btn btn-ghost" onclick="copyURL()">🔗 URL 복사</button>
+    </div>
+  </div>
+
+  <!-- 메뉴 추가 -->
+  <div class="section-header">
+    <span class="section-title">메뉴 관리</span>
+  </div>
+
+  <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:16px;">
+    <div style="display:grid; grid-template-columns:1fr 120px; gap:10px; margin-bottom:10px;">
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">메뉴 이름</label>
+        <input type="text" id="menu-name" placeholder="예) 아메리카노">
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">가격 (원)</label>
+        <input type="number" id="menu-price" placeholder="3000" inputmode="numeric">
+      </div>
+    </div>
+    <button class="btn btn-primary" style="width:100%;" onclick="addMenu()">+ 메뉴 추가</button>
+    <p id="add-error" class="error-msg" style="display:none; margin-top:8px;"></p>
+  </div>
+
+  <!-- 메뉴 목록 -->
+  <div id="menu-list">
+    <div class="spinner"></div>
+  </div>
+
+</div>
+
 <script>
-const $ = id => document.getElementById(id);
-let user = null, menus = [];
+  let currentUser = null;
+  let menus = [];
+  let menuUrl = '';
 
-(async function init() {
-  user = await Q.requireOwner();
-  if (!user) return;
-  try {
-    const ower = await Q.ensureOwerRow(user);
-    $('store').value = ower.store_name || '';
-    renderQR();
+  // 초기화
+  (async () => {
+    currentUser = await requireAuth();
+    if (!currentUser) return;
+
+    await loadOwner();
     await loadMenus();
-  } catch (e) {
-    Q.toast('불러오지 못했습니다. 연결을 확인해 주세요.', 'bad');
-    console.error(e);
+    generateQR();
+  })();
+
+  // 오너 정보 로드
+  async function loadOwner() {
+    try {
+      const owner = await getOwner(currentUser.id);
+      const name = owner.store_name || '내 가게';
+      document.getElementById('store-name').textContent = name;
+      document.getElementById('store-name-input').value = name;
+    } catch (e) {
+      console.error(e);
+    }
   }
-})();
 
-/* ---------- 가게 이름 ---------- */
-$('saveStore').onclick = async () => {
-  const name = $('store').value.trim();
-  if (!name) return Q.toast('가게 이름을 입력하세요.', 'bad');
-  const { error } = await sb.from('qr_owers').update({ store_name: name }).eq('id', user.id);
-  if (error) return Q.toast('저장하지 못했습니다.', 'bad');
-  Q.toast('저장했습니다');
-};
+  // 가게 이름 저장
+  async function saveStoreName() {
+    const name = document.getElementById('store-name-input').value.trim();
+    if (!name) return;
+    try {
+      await sb.from('qr_owers').update({ store_name: name }).eq('id', currentUser.id);
+      document.getElementById('store-name').textContent = name;
+      showToast('가게 이름이 저장됐어요 ✅');
+    } catch (e) {
+      showToast('저장 실패: ' + e.message);
+    }
+  }
 
-/* ---------- 메뉴 ---------- */
-async function loadMenus() {
-  const { data, error } = await sb.from('qr_menus')
-    .select('*').eq('owner_id', user.id)
-    .order('sort_order', { ascending: true }).order('created_at', { ascending: true });
-  if (error) { $('menus').innerHTML = '<p class="empty">메뉴를 불러오지 못했습니다.</p>'; return; }
-  menus = data || [];
-  render();
-}
+  // QR 생성
+  function generateQR() {
+    const baseUrl = location.origin + location.pathname.replace('setup.html', '');
+    menuUrl = `${baseUrl}menu.html?owner_id=${currentUser.id}`;
+    document.getElementById('qr-url').textContent = menuUrl;
 
-function render() {
-  $('mcount').textContent = menus.length ? `(${menus.length})` : '';
-  if (!menus.length) { $('menus').innerHTML = '<p class="empty">아직 메뉴가 없어요.<br>위에서 첫 메뉴를 추가해 보세요.</p>'; return; }
-  $('menus').innerHTML = menus.map((m, i) => `
-    <div class="item ${m.is_available ? '' : 'sold-out'}">
-      <div class="ord">
-        <button data-up="${i}" ${i === 0 ? 'disabled' : ''} aria-label="위로">▲</button>
-        <button data-down="${i}" ${i === menus.length - 1 ? 'disabled' : ''} aria-label="아래로">▼</button>
+    document.getElementById('qrcode').innerHTML = '';
+    new QRCode(document.getElementById('qrcode'), {
+      text: menuUrl,
+      width: 180,
+      height: 180,
+      colorDark: '#1a1a1a',
+      colorLight: '#ffffff',
+    });
+  }
+
+  // URL 복사
+  function copyURL() {
+    navigator.clipboard.writeText(menuUrl).then(() => showToast('URL 복사됐어요 🔗'));
+  }
+
+  // QR 인쇄
+  function printQR() {
+    window.print();
+  }
+
+  // 메뉴 로드
+  async function loadMenus() {
+    try {
+      menus = await getMenus(currentUser.id);
+      renderMenus();
+    } catch (e) {
+      document.getElementById('menu-list').innerHTML =
+        `<p class="error-msg">메뉴 로드 실패: ${e.message}</p>`;
+    }
+  }
+
+  // 메뉴 렌더링
+  function renderMenus() {
+    const el = document.getElementById('menu-list');
+
+    if (menus.length === 0) {
+      el.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">🍽️</div>
+          <p>등록된 메뉴가 없어요<br>위에서 메뉴를 추가해보세요</p>
+        </div>`;
+      return;
+    }
+
+    el.innerHTML = menus.map((m, i) => `
+      <div class="setup-item ${m.is_available ? '' : 'unavailable'}" id="item-${m.id}">
+        <div class="setup-item-info">
+          <div class="setup-item-name">${m.name}</div>
+          <div class="setup-item-price">${formatPrice(m.price)}</div>
+        </div>
+        <div class="setup-item-actions">
+          <!-- 품절 토글 -->
+          <label class="toggle" title="${m.is_available ? '품절 처리' : '판매 재개'}">
+            <input type="checkbox" ${m.is_available ? 'checked' : ''}
+              onchange="toggleAvailableMenu('${m.id}', this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+          <!-- 순서 -->
+          <button class="btn btn-ghost" style="padding:6px 10px;"
+            onclick="moveMenu(${i}, -1)" ${i === 0 ? 'disabled' : ''}>▲</button>
+          <button class="btn btn-ghost" style="padding:6px 10px;"
+            onclick="moveMenu(${i}, 1)" ${i === menus.length - 1 ? 'disabled' : ''}>▼</button>
+          <!-- 삭제 -->
+          <button class="btn btn-danger" style="padding:6px 10px;"
+            onclick="removeMenu('${m.id}')">✕</button>
+        </div>
       </div>
-      <div class="grow">
-        <div class="nm">${Q.esc(m.name)}</div>
-        <div class="pr">${Q.won(m.price)}</div>
-      </div>
-      <button class="btn sm ${m.is_available ? 'ghost' : 'signal'}" data-avail="${m.id}">
-        ${m.is_available ? '판매중' : '품절'}
-      </button>
-      <button class="btn sm ghost" data-del="${m.id}" aria-label="삭제">✕</button>
-    </div>`).join('');
-}
-
-$('menus').addEventListener('click', async e => {
-  const b = e.target.closest('button'); if (!b) return;
-
-  if (b.dataset.avail) {
-    const m = menus.find(x => x.id === b.dataset.avail);
-    const { error } = await sb.from('qr_menus').update({ is_available: !m.is_available }).eq('id', m.id);
-    if (error) return Q.toast('변경하지 못했습니다.', 'bad');
-    m.is_available = !m.is_available; render();
-    Q.toast(m.is_available ? '판매중으로 바꿨습니다' : '품절 처리했습니다');
+    `).join('');
   }
 
-  if (b.dataset.del) {
-    const m = menus.find(x => x.id === b.dataset.del);
-    if (!confirm(`'${m.name}' 메뉴를 지울까요?`)) return;
-    const { error } = await sb.from('qr_menus').delete().eq('id', m.id);
-    if (error) return Q.toast('지우지 못했습니다.', 'bad');
-    menus = menus.filter(x => x.id !== m.id); render();
+  // 메뉴 추가
+  async function addMenu() {
+    const name  = document.getElementById('menu-name').value.trim();
+    const price = parseInt(document.getElementById('menu-price').value);
+    const errEl = document.getElementById('add-error');
+
+    if (!name) { errEl.textContent = '메뉴 이름을 입력해주세요.'; errEl.style.display = 'block'; return; }
+    if (!price || price <= 0) { errEl.textContent = '올바른 가격을 입력해주세요.'; errEl.style.display = 'block'; return; }
+    errEl.style.display = 'none';
+
+    try {
+      const newMenu = await addMenuFn(currentUser.id, name, price);
+      // sort_order 업데이트
+      await sb.from('qr_menus').update({ sort_order: menus.length }).eq('id', newMenu.id);
+      newMenu.sort_order = menus.length;
+      menus.push(newMenu);
+      renderMenus();
+      document.getElementById('menu-name').value = '';
+      document.getElementById('menu-price').value = '';
+      showToast('메뉴가 추가됐어요 ✅');
+    } catch (e) {
+      errEl.textContent = '추가 실패: ' + e.message;
+      errEl.style.display = 'block';
+    }
   }
 
-  if (b.dataset.up || b.dataset.down) {
-    const i = Number(b.dataset.up ?? b.dataset.down);
-    const j = b.dataset.up ? i - 1 : i + 1;
-    await swap(i, j);
+  // 품절 토글
+  async function toggleAvailableMenu(id, isAvailable) {
+    try {
+      await toggleAvailable(id, isAvailable);
+      const m = menus.find(m => m.id === id);
+      if (m) m.is_available = isAvailable;
+      renderMenus();
+      showToast(isAvailable ? '판매 재개 ✅' : '품절 처리 🚫');
+    } catch (e) {
+      showToast('변경 실패: ' + e.message);
+    }
   }
-});
 
-/* sort_order 값을 서로 맞바꿉니다. 중복/공백이 있어도 인덱스로 다시 채워 정리 */
-async function swap(i, j) {
-  const arr = menus.slice();
-  [arr[i], arr[j]] = [arr[j], arr[i]];
-  const updates = arr.map((m, idx) => ({ id: m.id, sort_order: idx }));
-  const changed = updates.filter((u, idx) => arr[idx].sort_order !== u.sort_order);
-  const { error } = await Promise.all(
-    changed.map(u => sb.from('qr_menus').update({ sort_order: u.sort_order }).eq('id', u.id))
-  ).then(rs => ({ error: rs.find(r => r.error)?.error }));
-  if (error) return Q.toast('순서를 바꾸지 못했습니다.', 'bad');
-  changed.forEach(u => { arr.find(m => m.id === u.id).sort_order = u.sort_order; });
-  menus = arr; render();
-}
+  // 순서 변경
+  async function moveMenu(idx, dir) {
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= menus.length) return;
 
-$('addMenu').onclick = async () => {
-  const name = $('mname').value.trim();
-  const price = parseInt($('mprice').value, 10);
-  if (!name) return Q.toast('메뉴 이름을 입력하세요.', 'bad');
-  if (!Number.isFinite(price) || price < 0) return Q.toast('가격을 숫자로 입력하세요.', 'bad');
-  $('addMenu').disabled = true;
-  const { data, error } = await sb.from('qr_menus')
-    .insert({ owner_id: user.id, name, price, sort_order: menus.length })
-    .select().single();
-  $('addMenu').disabled = false;
-  if (error) return Q.toast('추가하지 못했습니다.', 'bad');
-  menus.push(data); render();
-  $('mname').value = ''; $('mprice').value = ''; $('mname').focus();
-  Q.toast('메뉴를 추가했습니다');
-};
+    // 배열 swap
+    [menus[idx], menus[newIdx]] = [menus[newIdx], menus[idx]];
 
-/* ---------- QR ---------- */
-function menuUrl() { return new URL('menu.html?owner_id=' + user.id, location.href).href; }
+    // sort_order 일괄 업데이트
+    try {
+      await Promise.all(menus.map((m, i) =>
+        sb.from('qr_menus').update({ sort_order: i }).eq('id', m.id)
+      ));
+      renderMenus();
+    } catch (e) {
+      showToast('순서 변경 실패: ' + e.message);
+    }
+  }
 
-function renderQR() {
-  const url = menuUrl();
-  $('qrurl').textContent = url;
-  $('qrbox').innerHTML = '';
-  new QRCode($('qrbox'), { text: url, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M });
-  $('displayLink').href = new URL('display.html?owner_id=' + user.id, location.href).href;
-  $('displayLink').target = '_blank';
-}
+  // 메뉴 삭제
+  async function removeMenu(id) {
+    if (!confirm('이 메뉴를 삭제할까요?')) return;
+    try {
+      await deleteMenu(id);
+      menus = menus.filter(m => m.id !== id);
+      renderMenus();
+      showToast('메뉴가 삭제됐어요');
+    } catch (e) {
+      showToast('삭제 실패: ' + e.message);
+    }
+  }
 
-$('copyUrl').onclick = async () => {
-  try { await navigator.clipboard.writeText(menuUrl()); Q.toast('주소를 복사했습니다'); }
-  catch { Q.toast('복사가 막혀 있어요. 주소를 길게 눌러 복사하세요.', 'bad'); }
-};
-
-$('printQr').onclick = () => {
-  const img = $('qrbox').querySelector('img, canvas');
-  const src = img && img.tagName === 'IMG' ? img.src : (img ? img.toDataURL() : '');
-  const w = window.open('', '_blank');
-  if (!w) return Q.toast('팝업이 막혀 있습니다.', 'bad');
-  w.document.write(`<title>QR 인쇄</title><body style="font-family:sans-serif;text-align:center;padding:40px">
-    <h1 style="font-size:28px">${Q.esc($('store').value || '주문')}</h1>
-    <p style="font-size:18px">QR을 찍고 주문하세요</p>
-    <img src="${src}" style="width:340px;height:340px">
-    </body>`);
-  w.document.close(); w.focus(); setTimeout(() => w.print(), 300);
-};
+  // 토스트
+  function showToast(msg) {
+    let el = document.getElementById('toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'toast';
+      el.className = 'toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2500);
+  }
 </script>
+
+<!-- 인쇄용 스타일 -->
+<style>
+  @media print {
+    .topbar, .main > *:not(.qr-section) { display: none !important; }
+    .qr-section {
+      border: none;
+      box-shadow: none;
+      margin: 0;
+      padding: 40px;
+    }
+    #qrcode img { width: 260px !important; height: 260px !important; }
+    .btn-row { display: none !important; }
+    .qr-url  { font-size: 1rem !important; margin-top: 16px; }
+  }
+</style>
+
 </body>
 </html>
