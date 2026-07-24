@@ -1,82 +1,133 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>QdingOrder — 사장님 로그인</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&display=swap" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
-<link href="style.css" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QdingOrder</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
 </head>
 <body>
-<div class="wrap">
-  <header class="head">
-    <div class="eyebrow">Qding Order</div>
-    <h1>주문은 QR로,<br>호출은 번호로.</h1>
-    <p class="muted" style="margin-top:10px">사장님 계정으로 들어가세요.</p>
-  </header>
 
-  <hr class="perf">
+<div class="login-screen">
 
-  <div class="card">
-    <div style="margin-bottom:12px">
-      <label for="email">이메일</label>
-      <input id="email" type="email" autocomplete="username" placeholder="owner@example.com">
+  <div class="logo">QdingOrder</div>
+  <p style="font-size:0.85rem; color:var(--text-dim); margin-top:-10px; margin-bottom:8px;">
+    노점상 QR 주문 시스템
+  </p>
+
+  <div class="login-box">
+    <h2>오너 로그인</h2>
+
+    <div class="form-group">
+      <label class="form-label">이메일</label>
+      <input type="email" id="email" placeholder="email@example.com" autocomplete="email">
     </div>
-    <div style="margin-bottom:16px">
-      <label for="pw">비밀번호</label>
-      <input id="pw" type="password" autocomplete="current-password" placeholder="6자 이상">
+
+    <div class="form-group">
+      <label class="form-label">비밀번호</label>
+      <input type="password" id="password" placeholder="비밀번호 입력" autocomplete="current-password">
     </div>
-    <button class="btn" id="signin">로그인</button>
-    <button class="btn ghost" id="signup" style="margin-top:8px">처음이에요, 계정 만들기</button>
-    <p class="muted center" id="msg" style="margin:12px 0 0;min-height:20px"></p>
+
+    <p id="error-msg" class="error-msg" style="display:none;"></p>
+
+    <button class="btn btn-primary btn-block" id="login-btn" onclick="handleLogin()">
+      로그인
+    </button>
+
+    <button class="btn btn-ghost btn-block" onclick="toggleSignup()" id="toggle-btn">
+      계정이 없으신가요? 회원가입
+    </button>
   </div>
 
-  <hr class="perf">
-  <p class="muted center">손님은 로그인이 필요 없어요. QR만 찍으면 됩니다.</p>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase.js"></script>
 <script>
-const $ = id => document.getElementById(id);
-const msg = (t, bad) => { $('msg').textContent = t; $('msg').style.color = bad ? 'var(--signal)' : 'var(--muted)'; };
+  let isSignup = false;
 
-(async () => {
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) location.replace('dashboard.html');
-})();
+  // 이미 로그인된 경우 대시보드로
+  (async () => {
+    const user = await getUser();
+    if (user) location.href = 'dashboard.html';
+  })();
 
-function creds() {
-  const email = $('email').value.trim();
-  const password = $('pw').value;
-  if (!email || !password) { msg('이메일과 비밀번호를 입력하세요.', true); return null; }
-  return { email, password };
-}
+  // 엔터키 로그인
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleLogin();
+  });
 
-$('signin').onclick = async () => {
-  const c = creds(); if (!c) return;
-  $('signin').disabled = true; msg('로그인 중...');
-  const { error } = await sb.auth.signInWithPassword(c);
-  $('signin').disabled = false;
-  if (error) return msg(error.message.includes('Invalid') ? '이메일 또는 비밀번호가 맞지 않습니다.' : error.message, true);
-  location.replace('dashboard.html');
-};
+  function toggleSignup() {
+    isSignup = !isSignup;
+    const box = document.querySelector('.login-box h2');
+    const btn = document.getElementById('login-btn');
+    const toggle = document.getElementById('toggle-btn');
 
-$('signup').onclick = async () => {
-  const c = creds(); if (!c) return;
-  if (c.password.length < 6) return msg('비밀번호는 6자 이상이어야 합니다.', true);
-  $('signup').disabled = true; msg('계정 만드는 중...');
-  const { data, error } = await sb.auth.signUp(c);
-  $('signup').disabled = false;
-  if (error) return msg(error.message, true);
-  if (!data.session) return msg('메일함에서 인증 링크를 눌러 확인을 마쳐주세요.');
-  location.replace('setup.html');
-};
+    if (isSignup) {
+      box.textContent = '회원가입';
+      btn.textContent = '가입하기';
+      toggle.textContent = '이미 계정이 있으신가요? 로그인';
+    } else {
+      box.textContent = '오너 로그인';
+      btn.textContent = '로그인';
+      toggle.textContent = '계정이 없으신가요? 회원가입';
+    }
+    hideError();
+  }
 
-$('pw').addEventListener('keydown', e => { if (e.key === 'Enter') $('signin').click(); });
+  async function handleLogin() {
+    const email    = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const btn      = document.getElementById('login-btn');
+
+    if (!email || !password) {
+      showError('이메일과 비밀번호를 입력해주세요.');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '처리중...';
+    hideError();
+
+    try {
+      if (isSignup) {
+        // 회원가입
+        const { data, error } = await sb.auth.signUp({ email, password });
+        if (error) throw error;
+
+        // qr_owers 레코드 생성
+        if (data.user) {
+          await sb.from('qr_owers').insert({
+            id: data.user.id,
+            store_name: email.split('@')[0],
+            is_open: false
+          });
+        }
+        showError('가입 완료! 이메일을 확인하거나 바로 로그인해보세요.');
+        toggleSignup();
+      } else {
+        // 로그인
+        await signIn(email, password);
+        location.href = 'dashboard.html';
+      }
+    } catch (err) {
+      showError(err.message || '로그인에 실패했습니다.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = isSignup ? '가입하기' : '로그인';
+    }
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('error-msg');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function hideError() {
+    document.getElementById('error-msg').style.display = 'none';
+  }
 </script>
+
 </body>
 </html>
