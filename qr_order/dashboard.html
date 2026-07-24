@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>주문 관리 — QdingOrder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<link href="style.css" rel="stylesheet">
+<style>
+  .bar { position:sticky; top:0; z-index:10; background:var(--paper); padding:10px 0; border-bottom:2px dashed var(--line); }
+  .switch { display:flex; align-items:center; gap:10px; }
+  .toggle { width:62px; height:34px; border-radius:999px; border:1.5px solid var(--ink); background:var(--card); position:relative; cursor:pointer; flex:none; }
+  .toggle::after { content:""; position:absolute; top:3px; left:3px; width:26px; height:26px; border-radius:50%; background:var(--ink); transition:left .16s; }
+  .toggle[aria-checked="true"] { background:var(--ok); border-color:var(--ok); }
+  .toggle[aria-checked="true"]::after { left:31px; background:#fff; }
+  .ocard { display:flex; gap:12px; align-items:flex-start; }
+  .onum { font-family:var(--display); font-size:40px; line-height:1; width:64px; flex:none; font-variant-numeric:tabular-nums; }
+  .stats { display:flex; gap:14px; font-family:var(--mono); font-size:12px; color:var(--muted); padding:8px 0 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="head">
+    <div class="eyebrow">Orders</div>
+    <h1 id="store">주문 관리</h1>
+  </header>
+
+  <div class="bar">
+    <div class="switch">
+      <button class="toggle" id="open" role="switch" aria-checked="false" aria-label="영업 상태"></button>
+      <div class="grow">
+        <div style="font-weight:800" id="openLabel">마감</div>
+        <div class="muted" style="font-size:13px" id="openHint">손님 메뉴판에 '영업 준비중'이 보입니다</div>
+      </div>
+      <button class="btn sm ghost" id="sound">소리 켜기</button>
+    </div>
+    <div class="stats">
+      <span id="stCount">오늘 0건</span><span id="stSales">0원</span><span id="stWait">대기 0</span>
+    </div>
+  </div>
+
+  <div id="list"><p class="empty">주문을 불러오는 중...</p></div>
+
+  <hr class="perf">
+  <div class="row">
+    <a class="btn ghost grow" href="setup.html" style="text-align:center;text-decoration:none">메뉴 & QR</a>
+    <button class="btn ghost grow" id="logout">로그아웃</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const RANK = { submitted: 0, confirmed: 1, ready: 2, done: 3 };
+const NEXT = { submitted: ['confirmed', '승인', 'stamp'], confirmed: ['ready', '호출', 'signal'], ready: ['done', '완료', 'ok'] };
+const LABEL = { submitted: '확인 대기', confirmed: '준비중', ready: '호출됨', done: '완료' };
+
+let user = null, isOpen = false, orders = [], seen = new Set(), firstLoad = true, busy = new Set();
+
+(async function init() {
+  user = await Q.requireOwner();
+  if (!user) return;
+  try {
+    const ower = await Q.ensureOwerRow(user);
+    $('store').textContent = ower.store_name || '주문 관리';
+    setOpen(ower.is_open);
+  } catch (e) { Q.toast('가게 정보를 불러오지 못했습니다.', 'bad'); }
+
+  await load();
+  Q.poll(load, 3000);
+})();
+
+/* ---------- 영업 토글 ---------- */
+function setOpen(v) {
+  isOpen = !!v;
+  $('open').setAttribute('aria-checked', String(isOpen));
+  $('openLabel').textContent = isOpen ? '영업중' : '마감';
+  $('openHint').textContent = isOpen ? '손님이 QR로 주문할 수 있습니다' : "손님 메뉴판에 '영업 준비중'이 보입니다";
+}
+
+$('open').onclick = async () => {
+  Q.unlockAudio(); refreshSoundBtn();
+  const next = !isOpen;
+  setOpen(next);
+  const { error } = await sb.from('qr_owers').update({ is_open: next }).eq('id', user.id);
+  if (error) { setOpen(!next); return Q.toast('바꾸지 못했습니다.', 'bad'); }
+  Q.toast(next ? '영업을 시작합니다' : '마감했습니다');
+};
+
+$('sound').onclick = () => { Q.unlockAudio(); refreshSoundBtn(); if (Q.audioReady()) Q.beep(1); };
+function refreshSoundBtn() {
+  const on = Q.audioReady();
+  $('sound').textContent = on ? '소리 켜짐' : '소리 켜기';
+  $('sound').classList.toggle('ghost', !on);
+  $('sound').classList.toggle('ok', on);
+}
+
+$('logout').onclick = async () => { await sb.auth.signOut(); location.replace('index.html'); };
+
+/* ---------- 주문 ---------- */
+async function load() {
+  const { data, error } = await sb.from('qr_orders')
+    .select('id, items, total_price, order_number, status, created_at')
+    .eq('owner_id', user.id)
+    .gte('created_at', Q.todayISO())
+    .order('created_at', { ascending: false });
+
+  if (error) { if (firstLoad) $('list').innerHTML = '<p class="empty">주문을 불러오지 못했습니다.</p>'; return; }
+
+  const fresh = (data || []).filter(o => o.status === 'submitted' && !seen.has(o.id));
+  (data || []).forEach(o => seen.add(o.id));
+  if (!firstLoad && fresh.length) {
+    Q.beep(2);
+    Q.toast(`새 주문 ${fresh.length}건`);
+    document.title = `(${fresh.length}) 새 주문 — QdingOrder`;
+    setTimeout(() => document.title = '주문 관리 — QdingOrder', 6000);
+  }
+  firstLoad = false;
+
+  orders = (data || []).sort((a, b) =>
+    (RANK[a.status] ?? 9) - (RANK[b.status] ?? 9) || a.order_number - b.order_number);
+  render();
+}
+
+function render() {
+  const live = orders.filter(o => o.status !== 'done');
+  const done = orders.filter(o => o.status === 'done');
+  const sales = orders.filter(o => o.status !== 'submitted').reduce((s, o) => s + o.total_price, 0);
+
+  $('stCount').textContent = `오늘 ${orders.length}건`;
+  $('stSales').textContent = Q.won(sales);
+  $('stWait').textContent = `대기 ${live.length}`;
+
+  $('list').innerHTML = (live.length ? live.map(card).join('') :
+      `<p class="empty">${isOpen ? '들어온 주문이 없습니다.<br>QR을 잘 보이는 곳에 두세요.' : '마감 상태입니다.<br>위 스위치를 켜면 주문을 받습니다.'}</p>`)
+    + (done.length ? `<hr class="perf"><h2 class="muted">완료 ${done.length}건</h2>` + done.map(card).join('') : '');
+}
+
+function card(o) {
+  const items = Array.isArray(o.items) ? o.items : [];
+  const n = NEXT[o.status];
+  return `
+  <div class="card">
+    <div class="ocard">
+      <div class="onum">${o.order_number}</div>
+      <div class="grow">
+        <span class="status st-${o.status}">${LABEL[o.status] || o.status}</span>
+        <span class="muted" style="margin-left:8px;font-family:var(--mono);font-size:12px">${Q.time(o.created_at)}</span>
+        <div class="receipt" style="margin-top:8px">
+          ${items.map(i => `<div class="line"><span>${Q.esc(i.name)} × ${i.qty}</span><span>${Q.won(i.price * i.qty)}</span></div>`).join('')}
+          <div class="line total"><span>합계</span><span>${Q.won(o.total_price)}</span></div>
+        </div>
+      </div>
+    </div>
+    ${n ? `<button class="btn ${n[2]}" style="margin-top:12px" data-adv="${o.id}" ${busy.has(o.id) ? 'disabled' : ''}>${n[1]}</button>` : ''}
+  </div>`;
+}
+
+$('list').addEventListener('click', async e => {
+  const b = e.target.closest('button[data-adv]'); if (!b) return;
+  const id = b.dataset.adv;
+  const o = orders.find(x => x.id === id);
+  if (!o || busy.has(id)) return;
+  const n = NEXT[o.status]; if (!n) return;
+
+  busy.add(id); b.disabled = true;
+  const { error } = await sb.from('qr_orders').update({ status: n[0] }).eq('id', id).eq('owner_id', user.id);
+  busy.delete(id);
+
+  if (error) { b.disabled = false; return Q.toast('상태를 바꾸지 못했습니다.', 'bad'); }
+  o.status = n[0];
+  if (n[0] === 'ready') Q.toast(`${o.order_number}번 호출했습니다`);
+  orders.sort((a, c) => (RANK[a.status] ?? 9) - (RANK[c.status] ?? 9) || a.order_number - c.order_number);
+  render();
+});
+</script>
+</body>
+</html>
