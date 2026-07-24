@@ -5,8 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>QdingOrder</title>
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase.js"></script>
 </head>
 <body>
 
@@ -43,6 +41,9 @@
 
 </div>
 
+<!-- 스크립트: CDN → supabase.js → 인라인 순서 보장 -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
 <script>
   let isSignup = false;
 
@@ -59,17 +60,17 @@
 
   function toggleSignup() {
     isSignup = !isSignup;
-    const box = document.querySelector('.login-box h2');
-    const btn = document.getElementById('login-btn');
+    const box    = document.querySelector('.login-box h2');
+    const btn    = document.getElementById('login-btn');
     const toggle = document.getElementById('toggle-btn');
 
     if (isSignup) {
-      box.textContent = '회원가입';
-      btn.textContent = '가입하기';
+      box.textContent    = '회원가입';
+      btn.textContent    = '가입하기';
       toggle.textContent = '이미 계정이 있으신가요? 로그인';
     } else {
-      box.textContent = '오너 로그인';
-      btn.textContent = '로그인';
+      box.textContent    = '오너 로그인';
+      btn.textContent    = '로그인';
       toggle.textContent = '계정이 없으신가요? 회원가입';
     }
     hideError();
@@ -85,17 +86,15 @@
       return;
     }
 
-    btn.disabled = true;
+    btn.disabled    = true;
     btn.textContent = '처리중...';
     hideError();
 
     try {
       if (isSignup) {
-        // 회원가입
         const { data, error } = await sb.auth.signUp({ email, password });
         if (error) throw error;
 
-        // qr_owers 레코드 생성
         if (data.user) {
           await sb.from('qr_owers').insert({
             id: data.user.id,
@@ -103,25 +102,24 @@
             is_open: false
           });
         }
-        showError('가입 완료! 이메일을 확인하거나 바로 로그인해보세요.');
+        showError('가입 완료! 이메일 확인 후 로그인해주세요.');
         toggleSignup();
       } else {
-        // 로그인
         await signIn(email, password);
         location.href = 'dashboard.html';
       }
     } catch (err) {
       showError(err.message || '로그인에 실패했습니다.');
     } finally {
-      btn.disabled = false;
+      btn.disabled    = false;
       btn.textContent = isSignup ? '가입하기' : '로그인';
     }
   }
 
   function showError(msg) {
     const el = document.getElementById('error-msg');
-    el.textContent = msg;
-    el.style.display = 'block';
+    el.textContent    = msg;
+    el.style.display  = 'block';
   }
 
   function hideError() {
