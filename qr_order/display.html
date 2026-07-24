@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>번호 디스플레이 | QdingOrder</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="display-screen">
+
+  <div class="display-logo">QdingOrder</div>
+  <div class="display-store" id="store-name">로딩중...</div>
+
+  <!-- 호출 번호 -->
+  <div class="display-label">🔔 호출번호</div>
+  <div class="display-number" id="display-number">-</div>
+
+  <!-- 대기 번호 목록 -->
+  <div class="display-waiting-label" id="waiting-label" style="display:none;">대기중</div>
+  <div class="display-waiting" id="display-waiting"></div>
+
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://knwaqyeznxvhkmvqigaf.supabase.co'
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtud2FxeWV6bnh2aGttdnFpZ2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NDUxODUsImV4cCI6MjA5NzMyMTE4NX0.7WZwkIXnMxzCDvAy8JCRUp5ybXwFDQJc7GHfHhfXF_M'
+  const { createClient } = supabase
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+
+  const ownerId = new URLSearchParams(location.search).get('owner_id')
+  let lastReadyNum = null
+  let pollTimer = null
+
+  if (!ownerId) {
+    document.querySelector('.display-screen').innerHTML = `
+      <div style="color:#555; font-size:1.2rem;">owner_id가 없어요</div>`
+  } else {
+    init()
+  }
+
+  async function init() {
+    // 가게 이름
+    const { data: owner } = await db.from('qr_owers').select('store_name').eq('id', ownerId).single()
+    if (owner) document.getElementById('store-name').textContent = owner.store_name || ''
+
+    await loadOrders()
+    pollTimer = setInterval(loadOrders, 3000)
+  }
+
+  async function loadOrders() {
+    const today = new Date().toISOString().slice(0, 10)
+    const { data, error } = await db
+      .from('qr_orders')
+      .select('order_number, status')
+      .eq('owner_id', ownerId)
+      .in('status', ['submitted', 'confirmed', 'ready'])
+      .gte('created_at', `${today}T00:00:00`)
+      .order('order_number', { ascending: true })
+
+    if (error) return
+
+    const orders  = data || []
+    const ready   = orders.filter(o => o.status === 'ready')
+    const waiting = orders.filter(o => o.status === 'submitted' || o.status === 'confirmed')
+
+    const numEl      = document.getElementById('display-number')
+    const waitingEl  = document.getElementById('display-waiting')
+    const waitLabel  = document.getElementById('waiting-label')
+
+    // 호출 번호
+    if (ready.length > 0) {
+      const num = ready[ready.length - 1].order_number  // 가장 최근 호출
+      if (lastReadyNum !== num) {
+        lastReadyNum = num
+        numEl.textContent  = num
+        numEl.style.color  = 'var(--ready)'
+        numEl.classList.remove('no-order')
+        // 깜빡임 애니메이션 재실행
+        numEl.style.animation = 'none'
+        numEl.offsetHeight     // reflow
+        numEl.style.animation  = ''
+      }
+    } else {
+      numEl.textContent = '-'
+      numEl.style.color = '#333'
+      numEl.classList.add('no-order')
+      lastReadyNum = null
+    }
+
+    // 대기 번호
+    if (waiting.length > 0) {
+      waitLabel.style.display = 'block'
+      waitingEl.innerHTML = waiting.map(o =>
+        `<div class="display-waiting-num">${o.order_number}</div>`
+      ).join('')
+    } else {
+      waitLabel.style.display = 'none'
+      waitingEl.innerHTML = ''
+    }
+  }
+</script>
+
+</body>
+</html>
