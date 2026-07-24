@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>QdingOrder — 사장님 로그인</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<link href="style.css" rel="stylesheet">
+</head>
+<body>
+<div class="wrap">
+  <header class="head">
+    <div class="eyebrow">Qding Order</div>
+    <h1>주문은 QR로,<br>호출은 번호로.</h1>
+    <p class="muted" style="margin-top:10px">사장님 계정으로 들어가세요.</p>
+  </header>
+
+  <hr class="perf">
+
+  <div class="card">
+    <div style="margin-bottom:12px">
+      <label for="email">이메일</label>
+      <input id="email" type="email" autocomplete="username" placeholder="owner@example.com">
+    </div>
+    <div style="margin-bottom:16px">
+      <label for="pw">비밀번호</label>
+      <input id="pw" type="password" autocomplete="current-password" placeholder="6자 이상">
+    </div>
+    <button class="btn" id="signin">로그인</button>
+    <button class="btn ghost" id="signup" style="margin-top:8px">처음이에요, 계정 만들기</button>
+    <p class="muted center" id="msg" style="margin:12px 0 0;min-height:20px"></p>
+  </div>
+
+  <hr class="perf">
+  <p class="muted center">손님은 로그인이 필요 없어요. QR만 찍으면 됩니다.</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const msg = (t, bad) => { $('msg').textContent = t; $('msg').style.color = bad ? 'var(--signal)' : 'var(--muted)'; };
+
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) location.replace('dashboard.html');
+})();
+
+function creds() {
+  const email = $('email').value.trim();
+  const password = $('pw').value;
+  if (!email || !password) { msg('이메일과 비밀번호를 입력하세요.', true); return null; }
+  return { email, password };
+}
+
+$('signin').onclick = async () => {
+  const c = creds(); if (!c) return;
+  $('signin').disabled = true; msg('로그인 중...');
+  const { error } = await sb.auth.signInWithPassword(c);
+  $('signin').disabled = false;
+  if (error) return msg(error.message.includes('Invalid') ? '이메일 또는 비밀번호가 맞지 않습니다.' : error.message, true);
+  location.replace('dashboard.html');
+};
+
+$('signup').onclick = async () => {
+  const c = creds(); if (!c) return;
+  if (c.password.length < 6) return msg('비밀번호는 6자 이상이어야 합니다.', true);
+  $('signup').disabled = true; msg('계정 만드는 중...');
+  const { data, error } = await sb.auth.signUp(c);
+  $('signup').disabled = false;
+  if (error) return msg(error.message, true);
+  if (!data.session) return msg('메일함에서 인증 링크를 눌러 확인을 마쳐주세요.');
+  location.replace('setup.html');
+};
+
+$('pw').addEventListener('keydown', e => { if (e.key === 'Enter') $('signin').click(); });
+</script>
+</body>
+</html>
