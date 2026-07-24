@@ -8,7 +8,6 @@
 </head>
 <body>
 
-<!-- 탑바 -->
 <div class="topbar">
   <div>
     <div class="logo">QdingOrder</div>
@@ -16,17 +15,15 @@
   </div>
   <div class="topbar-right">
     <a href="dashboard.html" class="btn btn-ghost" style="padding:8px 14px; font-size:0.85rem;">대시보드</a>
-    <button class="btn btn-ghost" style="padding:8px 14px; font-size:0.85rem;" onclick="signOut()">로그아웃</button>
+    <button class="btn btn-ghost" style="padding:8px 14px; font-size:0.85rem;" onclick="logout()">로그아웃</button>
   </div>
 </div>
 
 <div class="main">
 
-  <!-- 가게 이름 설정 -->
   <div class="section-header" style="margin-top:4px;">
     <span class="section-title">가게 설정</span>
   </div>
-
   <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:20px;">
     <div class="form-group" style="margin-bottom:10px;">
       <label class="form-label">가게 이름</label>
@@ -35,28 +32,22 @@
     <button class="btn btn-primary" style="width:100%;" onclick="saveStoreName()">저장</button>
   </div>
 
-  <!-- QR 코드 -->
   <div class="section-header">
     <span class="section-title">손님용 QR</span>
   </div>
-
   <div class="qr-section" style="margin-bottom:20px;">
-    <p style="font-size:0.85rem; color:var(--text-dim); margin-bottom:8px;">
-      이 QR을 카운터에 부착하세요
-    </p>
+    <p style="font-size:0.85rem; color:var(--text-dim); margin-bottom:8px;">이 QR을 카운터에 부착하세요</p>
     <div id="qrcode"></div>
     <div class="qr-url" id="qr-url"></div>
     <div class="btn-row">
-      <button class="btn btn-primary" onclick="printQR()">🖨️ 인쇄</button>
+      <button class="btn btn-primary" onclick="window.print()">🖨️ 인쇄</button>
       <button class="btn btn-ghost" onclick="copyURL()">🔗 URL 복사</button>
     </div>
   </div>
 
-  <!-- 메뉴 추가 -->
   <div class="section-header">
     <span class="section-title">메뉴 관리</span>
   </div>
-
   <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:16px;">
     <div style="display:grid; grid-template-columns:1fr 120px; gap:10px; margin-bottom:10px;">
       <div class="form-group" style="margin-bottom:0;">
@@ -72,235 +63,155 @@
     <p id="add-error" class="error-msg" style="display:none; margin-top:8px;"></p>
   </div>
 
-  <!-- 메뉴 목록 -->
-  <div id="menu-list">
-    <div class="spinner"></div>
-  </div>
+  <div id="menu-list"><div class="spinner"></div></div>
 
 </div>
 
+<div class="toast" id="toast"></div>
+
+<style>
+  @media print {
+    .topbar, .main > *:not(.qr-section) { display:none !important; }
+    .qr-section { border:none; margin:0; padding:40px; }
+    #qrcode img { width:260px !important; height:260px !important; }
+    .btn-row { display:none !important; }
+  }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="supabase.js"></script>
 <script>
-  let currentUser = null;
-  let menus = [];
-  let menuUrl = '';
+  const SUPABASE_URL = 'https://knwaqyeznxvhkmvqigaf.supabase.co'
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtud2FxeWV6bnh2aGttdnFpZ2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NDUxODUsImV4cCI6MjA5NzMyMTE4NX0.7WZwkIXnMxzCDvAy8JCRUp5ybXwFDQJc7GHfHhfXF_M'
+  const { createClient } = supabase
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY)
 
-  // 초기화
-  (async () => {
-    currentUser = await requireAuth();
-    if (!currentUser) return;
+  let currentUser = null
+  let menus = []
+  let menuUrl = ''
 
-    await loadOwner();
-    await loadMenus();
-    generateQR();
-  })();
+  ;(async () => {
+    const { data: { session } } = await db.auth.getSession()
+    if (!session) { location.href = 'index.html'; return }
+    currentUser = session.user
+    await loadOwner()
+    await loadMenus()
+    generateQR()
+  })()
 
-  // 오너 정보 로드
   async function loadOwner() {
-    try {
-      const owner = await getOwner(currentUser.id);
-      const name = owner.store_name || '내 가게';
-      document.getElementById('store-name').textContent = name;
-      document.getElementById('store-name-input').value = name;
-    } catch (e) {
-      console.error(e);
-    }
+    const { data } = await db.from('qr_owers').select('*').eq('id', currentUser.id).single()
+    if (!data) return
+    document.getElementById('store-name').textContent       = data.store_name || '내 가게'
+    document.getElementById('store-name-input').value = data.store_name || ''
   }
 
-  // 가게 이름 저장
   async function saveStoreName() {
-    const name = document.getElementById('store-name-input').value.trim();
-    if (!name) return;
-    try {
-      await sb.from('qr_owers').update({ store_name: name }).eq('id', currentUser.id);
-      document.getElementById('store-name').textContent = name;
-      showToast('가게 이름이 저장됐어요 ✅');
-    } catch (e) {
-      showToast('저장 실패: ' + e.message);
-    }
+    const name = document.getElementById('store-name-input').value.trim()
+    if (!name) return
+    const { error } = await db.from('qr_owers').update({ store_name: name }).eq('id', currentUser.id)
+    if (error) { showToast('저장 실패: ' + error.message); return }
+    document.getElementById('store-name').textContent = name
+    showToast('가게 이름이 저장됐어요 ✅')
   }
 
-  // QR 생성
   function generateQR() {
-    const baseUrl = location.origin + location.pathname.replace('setup.html', '');
-    menuUrl = `${baseUrl}menu.html?owner_id=${currentUser.id}`;
-    document.getElementById('qr-url').textContent = menuUrl;
-
-    document.getElementById('qrcode').innerHTML = '';
+    const base = location.href.replace('setup.html', '')
+    menuUrl = `${base}menu.html?owner_id=${currentUser.id}`
+    document.getElementById('qr-url').textContent = menuUrl
+    document.getElementById('qrcode').innerHTML = ''
     new QRCode(document.getElementById('qrcode'), {
-      text: menuUrl,
-      width: 180,
-      height: 180,
-      colorDark: '#1a1a1a',
-      colorLight: '#ffffff',
-    });
+      text: menuUrl, width: 180, height: 180,
+      colorDark: '#1a1a1a', colorLight: '#ffffff'
+    })
   }
 
-  // URL 복사
   function copyURL() {
-    navigator.clipboard.writeText(menuUrl).then(() => showToast('URL 복사됐어요 🔗'));
+    navigator.clipboard.writeText(menuUrl).then(() => showToast('URL 복사됐어요 🔗'))
   }
 
-  // QR 인쇄
-  function printQR() {
-    window.print();
-  }
-
-  // 메뉴 로드
   async function loadMenus() {
-    try {
-      menus = await getMenus(currentUser.id);
-      renderMenus();
-    } catch (e) {
-      document.getElementById('menu-list').innerHTML =
-        `<p class="error-msg">메뉴 로드 실패: ${e.message}</p>`;
-    }
+    const { data, error } = await db
+      .from('qr_menus').select('*')
+      .eq('owner_id', currentUser.id)
+      .order('sort_order', { ascending: true })
+    if (error) { document.getElementById('menu-list').innerHTML = `<p class="error-msg">${error.message}</p>`; return }
+    menus = data || []
+    renderMenus()
   }
 
-  // 메뉴 렌더링
   function renderMenus() {
-    const el = document.getElementById('menu-list');
-
+    const el = document.getElementById('menu-list')
     if (menus.length === 0) {
-      el.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">🍽️</div>
-          <p>등록된 메뉴가 없어요<br>위에서 메뉴를 추가해보세요</p>
-        </div>`;
-      return;
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">🍽️</div><p>등록된 메뉴가 없어요<br>위에서 추가해보세요</p></div>`
+      return
     }
-
     el.innerHTML = menus.map((m, i) => `
-      <div class="setup-item ${m.is_available ? '' : 'unavailable'}" id="item-${m.id}">
+      <div class="setup-item ${m.is_available ? '' : 'unavailable'}">
         <div class="setup-item-info">
           <div class="setup-item-name">${m.name}</div>
           <div class="setup-item-price">${formatPrice(m.price)}</div>
         </div>
         <div class="setup-item-actions">
-          <!-- 품절 토글 -->
           <label class="toggle" title="${m.is_available ? '품절 처리' : '판매 재개'}">
-            <input type="checkbox" ${m.is_available ? 'checked' : ''}
-              onchange="toggleAvailableMenu('${m.id}', this.checked)">
+            <input type="checkbox" ${m.is_available ? 'checked' : ''} onchange="toggleAvail('${m.id}', this.checked)">
             <span class="toggle-slider"></span>
           </label>
-          <!-- 순서 -->
-          <button class="btn btn-ghost" style="padding:6px 10px;"
-            onclick="moveMenu(${i}, -1)" ${i === 0 ? 'disabled' : ''}>▲</button>
-          <button class="btn btn-ghost" style="padding:6px 10px;"
-            onclick="moveMenu(${i}, 1)" ${i === menus.length - 1 ? 'disabled' : ''}>▼</button>
-          <!-- 삭제 -->
-          <button class="btn btn-danger" style="padding:6px 10px;"
-            onclick="removeMenu('${m.id}')">✕</button>
+          <button class="btn btn-ghost" style="padding:6px 10px;" onclick="moveMenu(${i},-1)" ${i===0?'disabled':''}>▲</button>
+          <button class="btn btn-ghost" style="padding:6px 10px;" onclick="moveMenu(${i},1)" ${i===menus.length-1?'disabled':''}>▼</button>
+          <button class="btn btn-danger" style="padding:6px 10px;" onclick="removeMenu('${m.id}')">✕</button>
         </div>
       </div>
-    `).join('');
+    `).join('')
   }
 
-  // 메뉴 추가
   async function addMenu() {
-    const name  = document.getElementById('menu-name').value.trim();
-    const price = parseInt(document.getElementById('menu-price').value);
-    const errEl = document.getElementById('add-error');
+    const name  = document.getElementById('menu-name').value.trim()
+    const price = parseInt(document.getElementById('menu-price').value)
+    const errEl = document.getElementById('add-error')
 
-    if (!name) { errEl.textContent = '메뉴 이름을 입력해주세요.'; errEl.style.display = 'block'; return; }
-    if (!price || price <= 0) { errEl.textContent = '올바른 가격을 입력해주세요.'; errEl.style.display = 'block'; return; }
-    errEl.style.display = 'none';
+    if (!name)          { errEl.textContent = '메뉴 이름을 입력해주세요.'; errEl.style.display='block'; return }
+    if (!price || price <= 0) { errEl.textContent = '올바른 가격을 입력해주세요.'; errEl.style.display='block'; return }
+    errEl.style.display = 'none'
 
-    try {
-      const newMenu = await addMenuFn(currentUser.id, name, price);
-      // sort_order 업데이트
-      await sb.from('qr_menus').update({ sort_order: menus.length }).eq('id', newMenu.id);
-      newMenu.sort_order = menus.length;
-      menus.push(newMenu);
-      renderMenus();
-      document.getElementById('menu-name').value = '';
-      document.getElementById('menu-price').value = '';
-      showToast('메뉴가 추가됐어요 ✅');
-    } catch (e) {
-      errEl.textContent = '추가 실패: ' + e.message;
-      errEl.style.display = 'block';
-    }
+    const { data, error } = await db.from('qr_menus').insert({
+      owner_id: currentUser.id, name, price, sort_order: menus.length
+    }).select().single()
+
+    if (error) { errEl.textContent = '추가 실패: ' + error.message; errEl.style.display='block'; return }
+    menus.push(data)
+    renderMenus()
+    document.getElementById('menu-name').value  = ''
+    document.getElementById('menu-price').value = ''
+    showToast('메뉴가 추가됐어요 ✅')
   }
 
-  // 품절 토글
-  async function toggleAvailableMenu(id, isAvailable) {
-    try {
-      await toggleAvailable(id, isAvailable);
-      const m = menus.find(m => m.id === id);
-      if (m) m.is_available = isAvailable;
-      renderMenus();
-      showToast(isAvailable ? '판매 재개 ✅' : '품절 처리 🚫');
-    } catch (e) {
-      showToast('변경 실패: ' + e.message);
-    }
+  async function toggleAvail(id, val) {
+    const { error } = await db.from('qr_menus').update({ is_available: val }).eq('id', id)
+    if (error) { showToast('변경 실패'); return }
+    menus.find(m => m.id === id).is_available = val
+    renderMenus()
+    showToast(val ? '판매 재개 ✅' : '품절 처리 🚫')
   }
 
-  // 순서 변경
   async function moveMenu(idx, dir) {
-    const newIdx = idx + dir;
-    if (newIdx < 0 || newIdx >= menus.length) return;
-
-    // 배열 swap
-    [menus[idx], menus[newIdx]] = [menus[newIdx], menus[idx]];
-
-    // sort_order 일괄 업데이트
-    try {
-      await Promise.all(menus.map((m, i) =>
-        sb.from('qr_menus').update({ sort_order: i }).eq('id', m.id)
-      ));
-      renderMenus();
-    } catch (e) {
-      showToast('순서 변경 실패: ' + e.message);
-    }
+    const newIdx = idx + dir
+    if (newIdx < 0 || newIdx >= menus.length) return
+    ;[menus[idx], menus[newIdx]] = [menus[newIdx], menus[idx]]
+    await Promise.all(menus.map((m, i) => db.from('qr_menus').update({ sort_order: i }).eq('id', m.id)))
+    renderMenus()
   }
 
-  // 메뉴 삭제
   async function removeMenu(id) {
-    if (!confirm('이 메뉴를 삭제할까요?')) return;
-    try {
-      await deleteMenu(id);
-      menus = menus.filter(m => m.id !== id);
-      renderMenus();
-      showToast('메뉴가 삭제됐어요');
-    } catch (e) {
-      showToast('삭제 실패: ' + e.message);
-    }
-  }
-
-  // 토스트
-  function showToast(msg) {
-    let el = document.getElementById('toast');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'toast';
-      el.className = 'toast';
-      document.body.appendChild(el);
-    }
-    el.textContent = msg;
-    el.classList.add('show');
-    setTimeout(() => el.classList.remove('show'), 2500);
+    if (!confirm('이 메뉴를 삭제할까요?')) return
+    const { error } = await db.from('qr_menus').delete().eq('id', id)
+    if (error) { showToast('삭제 실패'); return }
+    menus = menus.filter(m => m.id !== id)
+    renderMenus()
+    showToast('메뉴가 삭제됐어요')
   }
 </script>
-
-<!-- 스크립트: CDN → supabase.js → 인라인 순서 보장 -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="supabase.js"></script>
-
-<!-- 인쇄용 스타일 -->
-<style>
-  @media print {
-    .topbar, .main > *:not(.qr-section) { display: none !important; }
-    .qr-section {
-      border: none;
-      box-shadow: none;
-      margin: 0;
-      padding: 40px;
-    }
-    #qrcode img { width: 260px !important; height: 260px !important; }
-    .btn-row { display: none !important; }
-    .qr-url  { font-size: 1rem !important; margin-top: 16px; }
-  }
-</style>
 
 </body>
 </html>
