@@ -4,64 +4,47 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>QdingOrder - 로그인</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="login-screen">
-
   <div class="logo">QdingOrder</div>
   <p style="font-size:0.85rem; color:var(--text-dim); margin-top:-10px; margin-bottom:8px;">
     노점상 QR 주문 시스템
   </p>
-
   <div class="login-box">
     <h2 id="form-title">오너 로그인</h2>
-
     <div class="form-group">
       <label class="form-label">이메일</label>
       <input type="email" id="email" placeholder="owner@example.com" autocomplete="off">
     </div>
-
     <div class="form-group">
       <label class="form-label">비밀번호</label>
       <input type="password" id="password" placeholder="••••••••"
              onkeydown="if(event.key==='Enter') handleLogin()">
     </div>
-
     <p id="msg" class="error-msg" style="display:none;"></p>
-
-    <button class="btn btn-primary btn-block" id="login-btn" onclick="handleLogin()">
-      로그인
-    </button>
-
-    <button class="btn btn-ghost btn-block" id="toggle-btn" onclick="toggleMode()">
-      계정이 없으신가요? 회원가입
-    </button>
+    <button class="btn btn-primary btn-block" id="login-btn" onclick="handleLogin()">로그인</button>
+    <button class="btn btn-ghost btn-block" id="toggle-btn" onclick="toggleMode()">계정이 없으신가요? 회원가입</button>
   </div>
-
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
 <script>
-  const SUPABASE_URL  = 'YOUR_SUPABASE_URL'
-  const SUPABASE_KEY  = 'YOUR_SUPABASE_ANON_KEY'
-  const { createClient } = supabase
-  const db = createClient(SUPABASE_URL, SUPABASE_KEY)
-
   let isSignup = false
 
-  // 이미 로그인된 경우 대시보드로
   ;(async () => {
-    const { data: { session } } = await db.auth.getSession()
+    const session = await getSession()
     if (session) location.href = 'dashboard.html'
   })()
 
   function toggleMode() {
     isSignup = !isSignup
-    document.getElementById('form-title').textContent  = isSignup ? '회원가입'    : '오너 로그인'
-    document.getElementById('login-btn').textContent   = isSignup ? '가입하기'    : '로그인'
-    document.getElementById('toggle-btn').textContent  = isSignup ? '이미 계정이 있으신가요? 로그인' : '계정이 없으신가요? 회원가입'
+    document.getElementById('form-title').textContent = isSignup ? '회원가입' : '오너 로그인'
+    document.getElementById('login-btn').textContent  = isSignup ? '가입하기' : '로그인'
+    document.getElementById('toggle-btn').textContent = isSignup ? '이미 계정이 있으신가요? 로그인' : '계정이 없으신가요? 회원가입'
     showMsg('')
   }
 
@@ -72,7 +55,7 @@
 
     if (!email || !password) { showMsg('이메일과 비밀번호를 입력해주세요.'); return }
 
-    btn.disabled    = true
+    btn.disabled = true
     btn.textContent = '처리중...'
     showMsg('')
 
@@ -80,8 +63,6 @@
       if (isSignup) {
         const { data, error } = await db.auth.signUp({ email, password })
         if (error) throw error
-
-        // qr_owers 레코드 생성
         if (data.user) {
           await db.from('qr_owers').insert({
             id: data.user.id,
@@ -91,13 +72,11 @@
         }
         showMsg('가입 완료! 이메일 확인 후 로그인해주세요.')
         toggleMode()
-
       } else {
         const { error } = await db.auth.signInWithPassword({ email, password })
         if (error) throw error
         location.href = 'dashboard.html'
       }
-
     } catch (err) {
       showMsg(err.message || '처리 중 오류가 발생했습니다.')
     } finally {
