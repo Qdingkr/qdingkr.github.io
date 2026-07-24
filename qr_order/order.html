@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주문 확인 | QdingOrder</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <div class="logo">QdingOrder</div>
+    <div class="store-name" id="store-name"></div>
+  </div>
+</div>
+
+<div class="order-screen">
+
+  <!-- 번호 -->
+  <div class="order-num-wrap">
+    <div class="order-num-label">대기번호</div>
+    <div class="order-num" id="order-num">-</div>
+  </div>
+
+  <!-- 상태 메시지 -->
+  <div class="status-msg" id="status-msg">
+    <div class="icon">⏳</div>
+    <div class="title">확인 대기중...</div>
+    <div class="sub">사장님이 주문을 확인하고 있어요</div>
+  </div>
+
+  <!-- 주문 내역 -->
+  <div class="order-detail" id="order-detail" style="display:none;"></div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const SUPABASE_URL = 'https://knwaqyeznxvhkmvqigaf.supabase.co'
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtud2FxeWV6bnh2aGttdnFpZ2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NDUxODUsImV4cCI6MjA5NzMyMTE4NX0.7WZwkIXnMxzCDvAy8JCRUp5ybXwFDQJc7GHfHhfXF_M'
+  const { createClient } = supabase
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+  const orderId = new URLSearchParams(location.search).get('order_id')
+  let pollTimer  = null
+  let lastStatus = null
+
+  if (!orderId) {
+    document.body.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:12px;">
+        <div class="logo">QdingOrder</div>
+        <p style="color:var(--text-dim);">주문 정보를 찾을 수 없어요.</p>
+      </div>`
+  } else {
+    init()
+  }
+
+  async function init() {
+    await loadOrder()
+    pollTimer = setInterval(loadOrder, 5000)
+  }
+
+  async function loadOrder() {
+    const { data: order, error } = await db
+      .from('qr_orders').select('*').eq('id', orderId).single()
+
+    if (error || !order) {
+      document.getElementById('status-msg').innerHTML = `
+        <div class="icon">⚠️</div>
+        <div class="title">주문 정보를 찾을 수 없어요</div>`
+      return
+    }
+
+    // 가게 이름
+    if (!document.getElementById('store-name').textContent) {
+      const { data: owner } = await db.from('qr_owers').select('store_name').eq('id', order.owner_id).single()
+      if (owner) document.getElementById('store-name').textContent = owner.store_name || ''
+    }
+
+    // 번호 표시
+    document.getElementById('order-num').textContent = order.order_number
+
+    // 상태 변경 시만 업데이트
+    if (lastStatus !== order.status) {
+      lastStatus = order.status
+      renderStatus(order.status)
+    }
+
+    // 주문 내역 (한 번만 렌더)
+    const detailEl = document.getElementById('order-detail')
+    if (detailEl.style.display === 'none') {
+      renderDetail(order.items, order.total_price)
+      detailEl.style.display = 'block'
+    }
+
+    // 완료 시 폴링 종료
+    if (order.status === 'done') clearInterval(pollTimer)
+  }
+
+  function renderStatus(status) {
+    const msgEl = document.getElementById('status-msg')
+    const numEl = document.getElementById('order-num')
+
+    const map = {
+      submitted: {
+        icon: '⏳', title: '확인 대기중...', sub: '사장님이 주문을 확인하고 있어요',
+        cls: '', numColor: 'var(--accent)'
+      },
+      confirmed: {
+        icon: '✅', title: '결제 확인됐어요', sub: '음식을 준비하고 있어요',
+        cls: 'confirmed', numColor: 'var(--confirmed)'
+      },
+      ready: {
+        icon: '🔔', title: '준비됐어요!', sub: '번호를 보여주고 수령해주세요',
+        cls: 'ready', numColor: 'var(--ready)'
+      },
+      done: {
+        icon: '😊', title: '맛있게 드세요!', sub: '주문이 완료됐어요',
+        cls: 'done', numColor: 'var(--done)'
+      }
+    }
+
+    const s = map[status] || map.submitted
+    msgEl.className = `status-msg ${s.cls}`
+    msgEl.innerHTML = `
+      <div class="icon">${s.icon}</div>
+      <div class="title">${s.title}</div>
+      <div class="sub">${s.sub}</div>`
+
+    numEl.style.color = s.numColor
+
+    // ready 시 진동
+    if (status === 'ready') {
+      if (navigator.vibrate) navigator.vibrate([500, 200, 500, 200, 500])
+    }
+  }
+
+  function renderDetail(items, totalPrice) {
+    const el = document.getElementById('order-detail')
+    el.innerHTML = `
+      ${items.map(i => `
+        <div class="order-detail-row">
+          <span class="name">${i.name}</span>
+          <span class="price">${i.qty}개 · ${(i.price * i.qty).toLocaleString()}원</span>
+        </div>`).join('')}
+      <div class="order-detail-total">
+        <span>합계</span>
+        <span>${totalPrice.toLocaleString()}원</span>
+      </div>`
+  }
+
+  function showToast(msg) {
+    const el = document.getElementById('toast')
+    el.textContent = msg
+    el.classList.add('show')
+    setTimeout(() => el.classList.remove('show'), 2500)
+  }
+</script>
+
+</body>
+</html>
