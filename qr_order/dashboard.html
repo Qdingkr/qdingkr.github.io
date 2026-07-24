@@ -147,13 +147,13 @@
       return
     }
 
-    el.innerHTML = sorted.map(o => {
+    const cards = sorted.map(o => {
       const itemText = o.items.map(i => `${i.name} ${i.qty}개`).join(', ')
       const time = new Date(o.created_at).toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' })
 
       let btn = ''
-      if      (o.status === 'submitted') btn = `<button class="btn btn-blue order-card-btn"   onclick="updateStatus('${o.id}','confirmed')">승인</button>`
-      else if (o.status === 'confirmed') btn = `<button class="btn btn-warn order-card-btn"   onclick="updateStatus('${o.id}','ready')">호출</button>`
+      if      (o.status === 'submitted') btn = `<button class="btn btn-blue order-card-btn"    onclick="updateStatus('${o.id}','confirmed')">승인</button>`
+      else if (o.status === 'confirmed') btn = `<button class="btn btn-warn order-card-btn"    onclick="updateStatus('${o.id}','ready')">호출</button>`
       else if (o.status === 'ready')     btn = `<button class="btn btn-primary order-card-btn" onclick="updateStatus('${o.id}','done')">완료</button>`
 
       return `
@@ -168,6 +168,22 @@
           <div class="order-card-actions">${btn}</div>
         </div>`
     }).join('')
+
+    // 하단 합계 + 삭제
+    const totalSum = orders.reduce((s, o) => s + o.total_price, 0)
+    const footer = `
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+                  padding:14px 16px; margin-top:8px; display:flex; align-items:center; justify-content:space-between;">
+        <div>
+          <div style="font-size:0.8rem; color:var(--text-dim); margin-bottom:2px;">오늘 총 매출</div>
+          <div style="font-size:1.2rem; font-weight:800; color:var(--accent);">${totalSum.toLocaleString()}원</div>
+        </div>
+        <button class="btn btn-danger" style="padding:8px 16px; font-size:0.85rem;" onclick="clearOrders()">
+          🗑️ 목록 삭제
+        </button>
+      </div>`
+
+    el.innerHTML = cards + footer
   }
 
   function updateStats() {
@@ -186,6 +202,21 @@
 
     const labels = { confirmed:'승인됐어요 ✅', ready:'호출했어요 🔔', done:'완료됐어요 👍' }
     showToast(labels[status] || '')
+  }
+
+  async function clearOrders() {
+    if (!confirm('오늘 주문 목록을 모두 삭제할까요?')) return
+    const todayStr = new Date().toISOString().slice(0, 10)
+    const { error } = await db
+      .from('qr_orders')
+      .delete()
+      .eq('owner_id', currentUser.id)
+      .gte('created_at', todayStr + 'T00:00:00')
+    if (error) { showToast('삭제 실패: ' + error.message); return }
+    orders = []
+    renderOrders()
+    updateStats()
+    showToast('주문 목록이 삭제됐어요 🗑️')
   }
 
   function statusLabel(status) {
